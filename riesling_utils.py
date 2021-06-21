@@ -66,10 +66,11 @@ def imshow3(I, ncol=None, nrow=None, cmap='gray', vmin=None, vmax=None, order='c
 
                 i += 1
 
-    plt.imshow(I3, cmap=cmap, vmin=vmin, vmax=vmax)
-    plt.axis('off')
+    fig, ax = plt.subplots(1, 1, figsize=(12, 4))
+    ax.imshow(I3, cmap=cmap, vmin=vmin, vmax=vmax)
+    ax.axis('off')
 
-    return I3
+    return fig
 
 
 def read_radial_h5(f, vol):
@@ -99,7 +100,7 @@ def read_radial_h5(f, vol):
     return data_rs, traj_rs, info
 
 
-def plot_3plane(I, ix=None, iy=None, iz=None, cmap='gray', vmin=None, vmax=None):
+def plot_3plane(I, title=None, ix=None, iy=None, iz=None, cmap='gray', vmin=None, vmax=None):
     """3 plane plot of 3D image data
 
     Args:
@@ -116,10 +117,13 @@ def plot_3plane(I, ix=None, iy=None, iz=None, cmap='gray', vmin=None, vmax=None)
         iy = int(ny/2)
         iz = int(nz/2)
 
-    I = imshow3(np.stack([I[ix, :, :], I[:, iy, :], I[:, :, iz]], axis=2),
-                ncol=3, nrow=1, cmap=cmap, vmin=vmin, vmax=vmax)
+    fig = imshow3(np.stack([I[ix, :, :], I[:, iy, :], I[:, :, iz]], axis=2),
+                  ncol=3, nrow=1, cmap=cmap, vmin=vmin, vmax=vmax)
 
-    return I
+    fig.suptitle(title)
+    fig.tight_layout()
+    plt.close()
+    return fig
 
 
 def load_nii(f):
