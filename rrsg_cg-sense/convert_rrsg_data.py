@@ -75,13 +75,13 @@ def convert_data(input_fname, output_fname, matrix, voxel_size):
 
     # Scale trajectory
     traj = traj/np.max(abs(traj)) * 0.5
-    [nd, npoints, nshots] = np.shape(traj)
+    traj = traj.transpose((2, 1, 0))
+    print(np.shape(traj))
+    [npoints, nshots, nd] = np.shape(traj)
 
     # If 2D trajectory extend to third dimension
     if nd == 2:
-        traj2 = np.zeros((3, npoints, nshots))
-        traj2[0:2, :, :] = traj
-        traj = traj2
+        traj = np.pad(traj, ((0, 0), (0, 0), (0, 1)))
 
     # Create info struct
     read_points = np.shape(rawdata)[1]
@@ -97,17 +97,15 @@ def convert_data(input_fname, output_fname, matrix, voxel_size):
     h5_info = create_info(matrix, voxel_size, read_points, read_gap, spokes_hi, spokes_lo, lo_scale,
                           channels, volumes, tr, origin, direction)
     # Reshape data
+    print(rawdata.shape)
     rawdata = np.transpose(rawdata, [0, 2, 1, 3])
+    print(rawdata.shape)
 
     # Create new H5 file
     out_f = h5py.File(output_fname, 'w')
     out_f.create_dataset("info", data=h5_info)
-    h5_traj = np.reshape(np.reshape(traj, (1, np.prod(traj.shape))), [
-        traj.shape[2], traj.shape[1], traj.shape[0]])
-
-    out_f.create_dataset('trajectory', data=h5_traj,
-                         chunks=np.shape(h5_traj), compression="gzip")
-
+    out_f.create_dataset('trajectory', data=traj,
+                         chunks=np.shape(traj), compression="gzip")
     out_f.create_dataset("noncartesian", dtype='c8', data=rawdata,
                          chunks=np.shape(rawdata), compression="gzip")
     out_f.close()
