@@ -74,7 +74,7 @@ def convert_data(input_fname, output_fname, matrix, voxel_size):
     data_f.close()
 
     # Scale trajectory
-    traj = traj/np.max(abs(traj))
+    traj = traj/np.max(abs(traj)) * 0.5
     [nd, npoints, nshots] = np.shape(traj)
 
     # If 2D trajectory extend to third dimension
@@ -96,25 +96,20 @@ def convert_data(input_fname, output_fname, matrix, voxel_size):
     direction = [1, 0, 0, 0, 1, 0, 0, 0, 1]
     h5_info = create_info(matrix, voxel_size, read_points, read_gap, spokes_hi, spokes_lo, lo_scale,
                           channels, volumes, tr, origin, direction)
-
     # Reshape data
-    rawdata_rs = np.transpose(rawdata[0, :, :, :], [1, 0, 2])
-    traj_rs = np.transpose(traj, [2, 1, 0])
+    rawdata = np.transpose(rawdata, [0, 2, 1, 3])
 
     # Create new H5 file
     out_f = h5py.File(output_fname, 'w')
     out_f.create_dataset("info", data=h5_info)
-    h5_traj = np.reshape(np.reshape(traj_rs, (1, np.prod(traj_rs.shape))), [
-        traj_rs.shape[2], traj_rs.shape[1], traj_rs.shape[0]])
+    h5_traj = np.reshape(np.reshape(traj, (1, np.prod(traj.shape))), [
+        traj.shape[2], traj.shape[1], traj.shape[0]])
 
     out_f.create_dataset('trajectory', data=h5_traj,
                          chunks=np.shape(h5_traj), compression="gzip")
 
-    h5_data = np.reshape(np.reshape(rawdata_rs, (1, np.prod(rawdata_rs.shape))), [
-        1, rawdata_rs.shape[2], rawdata_rs.shape[1], rawdata_rs.shape[0]])
-
-    out_f.create_dataset("noncartesian", dtype='c8', data=h5_data,
-                         chunks=np.shape(h5_data), compression="gzip")
+    out_f.create_dataset("noncartesian", dtype='c8', data=rawdata,
+                         chunks=np.shape(rawdata), compression="gzip")
     out_f.close()
 
     print("H5 file saved to {}".format(output_fname))
