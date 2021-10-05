@@ -76,7 +76,6 @@ def convert_data(input_fname, output_fname, matrix, voxel_size):
     # Scale trajectory
     traj = traj/np.max(abs(traj)) * 0.5
     traj = traj.transpose((2, 1, 0))
-    print(np.shape(traj))
     [npoints, nshots, nd] = np.shape(traj)
 
     # If 2D trajectory extend to third dimension
@@ -97,9 +96,7 @@ def convert_data(input_fname, output_fname, matrix, voxel_size):
     h5_info = create_info(matrix, voxel_size, read_points, read_gap, spokes_hi, spokes_lo, lo_scale,
                           channels, volumes, tr, origin, direction)
     # Reshape data
-    print(rawdata.shape)
     rawdata = np.transpose(rawdata, [0, 2, 1, 3])
-    print(rawdata.shape)
 
     # Create new H5 file
     out_f = h5py.File(output_fname, 'w')
