@@ -1,6 +1,6 @@
 #!/bin/bash
 
-wget https://github.com/spinicist/riesling/releases/download/v0.4/riesling-linux.tar.gz
+wget https://github.com/spinicist/riesling/releases/download/v0.6/riesling-linux.tar.gz
 tar xvzf riesling-linux.tar.gz
 mkdir -p .local/bin
 mv riesling .local/bin
