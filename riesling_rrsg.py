@@ -32,22 +32,25 @@ DTYPE_ThreeDStack = 2
 def create_info(matrix, voxel_size, read_points, read_gap, spokes_hi, spokes_lo, lo_scale,
                 channels, volumes, tr, origin, direction):
     D = np.dtype({'names': [
+        'type',
+        'channels',
         'matrix',
-        'voxel_size',
         'read_points',
         'read_gap',
         'spokes_hi',
         'spokes_lo',
         'lo_scale',
-        'channels',
         'volumes',
+        'echoes',
         'tr',
+        'voxel_size',
         'origin',
-        'direction',
-        'type'],
+        'direction'
+        ],
         'formats': [
+        '<i8',
+        '<i8',
         ('<i8', (3,)),
-        ('<f4', (3,)),
         '<i8',
         '<i8',
         '<i8',
@@ -57,12 +60,14 @@ def create_info(matrix, voxel_size, read_points, read_gap, spokes_hi, spokes_lo,
         '<i8',
         '<f4',
         ('<f4', (3,)),
-        ('<f4', (9,)),
-        '<i8']
+        ('<f4', (3,)),
+        ('<f4', (9,))
+        ]
     })
 
-    info = np.array([(matrix, voxel_size, read_points, read_gap, spokes_hi, spokes_lo, lo_scale,
-                      channels, volumes, tr, origin, direction, DTYPE_ThreeDStack)], dtype=D)
+    info = np.array([(DTYPE_ThreeDStack, channels, matrix, read_points, read_gap,
+                      spokes_hi, spokes_lo, lo_scale, volumes, 1,
+                      tr, voxel_size, origin, direction)], dtype=D)
 
     return info
 

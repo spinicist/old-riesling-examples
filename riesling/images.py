@@ -25,7 +25,7 @@ def get_comp(component):
     return fn
 
 
-def plot_3plane(file, dset='image', title=None, ix=None, iy=None, iz=None, iv=0, cmap='gray', vmin=None, vmax=None, component='mag'):
+def plot_3plane(file, dset='image', basis=None, title=None, ix=None, iy=None, iz=None, iv=0, cmap='gray', vmin=None, vmax=None, component='mag'):
     """3 plane plot of 3D image data in an h5 file
 
     Args:
@@ -44,6 +44,10 @@ def plot_3plane(file, dset='image', title=None, ix=None, iy=None, iz=None, iv=0,
 
     f = h5py.File(file, 'r')
     I = f[dset][:]
+
+    if basis is not None:
+        I = I[:, :, :, :, basis]
+
     [nv, nz, ny, nx] = np.shape(I)
     if not (ix or iy or iz):
         ix = int(nx/2)
@@ -57,6 +61,7 @@ def plot_3plane(file, dset='image', title=None, ix=None, iy=None, iz=None, iv=0,
         vmin = lims[0]
     if not vmax:
         vmax = lims[1]
+    # print(f'vmin {vmin} vmax {vmax}')
 
     fig, ax = plt.subplots(1, 3, figsize=(12, 4), facecolor='black')
     ax[0].imshow(np.squeeze(img[iz, :, :]), cmap=cmap, vmin=vmin, vmax=vmax)
@@ -71,8 +76,110 @@ def plot_3plane(file, dset='image', title=None, ix=None, iy=None, iz=None, iv=0,
     plt.close()
     return fig
 
+def plot_multi(file, dset='basis-images', title=None, ix=None, iy=None, iz=None, iv=0, vmin=None, vmax=None):
+    """3 plane plot of 3D basis image data in an h5 file
 
-def plot_slices(file, dset='image', title=None, nrows=2, iz=None, cmap='gray', vmin=None, vmax=None, component='mag'):
+    Args:
+    """
+
+    f = h5py.File(file, 'r')
+    I = f[dset][:]
+    if I.ndim == 4:
+      I = np.transpose(I,axes=(1,2,3,0))
+      I = I[np.newaxis, :, :, :, :]
+    [nv, nz, ny, nx, npar] = np.shape(I)
+
+    if not (ix or iy or iz):
+        ix = int(nx/2)
+        iy = int(ny/2)
+        iz = int(nz/2)
+
+    imgs = np.real(np.squeeze(I[iv, :, :, :, :]))
+    imglist = [imgs[:, :, :, ii] for ii in range(npar)]
+    lims = [np.nanpercentile(img, (2, 98)) for img in imglist]
+    if not vmax:
+        vmax = [lims[ii][1] for ii in range(npar)]
+    if not vmin:
+        vmin = [lims[ii][0] for ii in range(npar)]
+        vmin = -np.maximum(np.absolute(vmin), vmax)
+        vmax = np.maximum(np.absolute(vmin), vmax)
+
+    fig, ax = plt.subplots(npar, 3, figsize=(9, 3*npar), facecolor='black')
+    for ip in range(npar):
+        if vmin[ip] < 0:
+            cmap = 'cet_bkr'
+        else:
+            cmap = 'gray'
+        ax[ip, 0].imshow(np.squeeze(imgs[iz, :, :, ip]),
+                         cmap=cmap, vmin=vmin[ip], vmax=vmax[ip])
+        ax[ip, 0].axis('off')
+        ax[ip, 1].imshow(np.squeeze(imgs[:, iy, :, ip]),
+                         cmap=cmap, vmin=vmin[ip], vmax=vmax[ip])
+        ax[ip, 1].axis('off')
+        im = ax[ip, 2].imshow(np.squeeze(imgs[:, :, ix, ip]),
+                              cmap=cmap, vmin=vmin[ip], vmax=vmax[ip])
+        ax[ip, 2].axis('off')
+        cb = fig.colorbar(im, location='right', ax=ax[ip, 2])
+        cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+    fig.suptitle(title, color='white')
+    fig.tight_layout(pad=0)
+    plt.close()
+    return fig
+
+
+def plot_kspace(file, dset='basis-images', title=None, ix=None, iy=None, iz=None, ic=0, cmap='gray', vmin=None, vmax=None, component='mag'):
+    """3 plane plot of 3D image data in an h5 file
+
+    Args:
+        file (str): Path to .h5 file
+        dset (str): Dataset within h5 file to plot. Default "image"
+        title (str, optional): Plot title. Defaults to ''.
+        ix   (int, optional): Slice index for x-axis.
+        iy   (int, optional): Slice index for y-axis.
+        iz   (int, optional): Slice index for z-axis.
+        iv   (int, optional): Volume to slice, default 0.
+        cmap (str, optional): colormap. Defaults to 'gray'.
+        vmin (float, optional): Lower window limit. Defaults to None.
+        vmax (float, optional): Upper window limit. Defaults to None.
+        component (str, opt): mag/pha/real/imaginary. Default mag
+    """
+
+    f = h5py.File(file, 'r')
+    I = f[dset][:]
+
+    [nz, ny, nx, nb, nc] = np.shape(I)
+    if not (ix or iy or iz):
+        ix = int(nx/2)
+        iy = int(ny/2)
+        iz = int(nz/2)
+
+    fn = get_comp(component)
+    img = fn(np.squeeze(I[:, :, :, :, ic]))
+    lims = np.nanpercentile(img, (2, 98))
+    if not vmin:
+        vmin = lims[0]
+    if not vmax:
+        vmax = lims[1]
+
+    fig, ax = plt.subplots(nb, 3, figsize=(12, 3*nb), facecolor='black')
+    for ib in range(nb):
+        ax[ib, 0].imshow(np.squeeze(img[iz, :, :, ib]),
+                         cmap=cmap, vmin=vmin, vmax=vmax)
+        ax[ib, 0].axis('off')
+        ax[ib, 1].imshow(np.squeeze(img[:, iy, :, ib]),
+                         cmap=cmap, vmin=vmin, vmax=vmax)
+        ax[ib, 1].axis('off')
+        ax[ib, 2].imshow(np.squeeze(img[:, :, ix, ib]),
+                         cmap=cmap, vmin=vmin, vmax=vmax)
+        ax[ib, 2].axis('off')
+
+    fig.suptitle(title, color='white')
+    fig.tight_layout(pad=0)
+    plt.close()
+    return fig
+
+
+def plot_slices(file, dset='image', title=None, nrows=1, iz=None, cmap='gray', vmin=None, vmax=None, component='mag'):
     """Plot a slice through each volume of a dataset
 
     Args:
@@ -109,7 +216,10 @@ def plot_slices(file, dset='image', title=None, nrows=2, iz=None, cmap='gray', v
 
     for iv in range(nv):
         data = np.squeeze(img[iv, :, :])
-        this_ax = ax[int(np.floor(iv / ncols)), iv % ncols]
+        if nrows == 1:
+          this_ax = ax[iv]
+        else:
+          this_ax = ax[int(np.floor(iv / ncols)), iv % ncols]
         this_ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
         this_ax.axis('off')
     fig.tight_layout(pad=0)
@@ -118,7 +228,7 @@ def plot_slices(file, dset='image', title=None, nrows=2, iz=None, cmap='gray', v
     return fig
 
 
-def plot_sense(file, dset='sense', title=None, nrows=2, iz=None):
+def plot_sense(file, dset='sense', title=None, nrows=1, iz=None):
     """Plot a slice through each channel of a SENSE dataset
 
     Args:
@@ -153,7 +263,10 @@ def plot_sense(file, dset='sense', title=None, nrows=2, iz=None):
         mag_slice = np.squeeze(mag[:, :, ic])
         colorized = smap.to_rgba(pha_slice, alpha=1., bytes=False)[:, :, 0:3]
         colorized = colorized * mag_slice[:, :, None]
-        this_ax = ax[int(np.floor(ic / ncols)), ic % ncols]
+        if nrows == 1:
+          this_ax = ax[ic]
+        else:
+          this_ax = ax[int(np.floor(ic / ncols)), ic % ncols]
         this_ax.imshow(colorized)
         this_ax.axis('off')
     fig.tight_layout(pad=0)
@@ -216,26 +329,4 @@ def plot_diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', iz
     ax[2].set_title(f'Diff x{diffscale}', color='white')
     fig.tight_layout(pad=0)
     plt.close()
-    return fig
-
-
-def plot_trajectory(filename, skip_read=1, skip_spoke=1):
-    with h5py.File(filename) as f:
-        traj = np.array(f['trajectory'])
-        print(traj.shape)
-        fig, ax = plt.subplots(1, 3, figsize=(12, 4))
-        ax[0].grid()
-        ax[0].scatter(traj[::skip_spoke, ::skip_read, 0],
-                      traj[::skip_spoke, ::skip_read, 1], s=0.5)
-        ax[0].set_aspect('equal')
-        ax[1].grid()
-        ax[1].scatter(traj[::skip_spoke, ::skip_read, 0],
-                      traj[::skip_spoke, ::skip_read, 2], s=0.5)
-        ax[1].set_aspect('equal')
-        ax[2].grid()
-        ax[2].scatter(traj[::skip_spoke, ::skip_read, 1],
-                      traj[::skip_spoke, ::skip_read, 2], s=0.5)
-        ax[2].set_aspect('equal')
-        fig.tight_layout()
-        plt.close()
     return fig
