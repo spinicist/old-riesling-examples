@@ -53,6 +53,8 @@ def traj3d(filename, sl_read=slice(0,-1,1), sl_spoke=slice(0,-1,1)):
                     traj[sl_spoke, sl_read, 1],
                     traj[sl_spoke, sl_read, 2])
         fig.tight_layout()
+        plt.close()
+    return fig
 
 def kspace(filename, dset='noncartesian', vol=0, coil=0, sl_read=slice(0,-1,1), sl_spoke=slice(0,512,1)):
     with h5py.File(filename) as f:
@@ -66,3 +68,5 @@ def kspace(filename, dset='noncartesian', vol=0, coil=0, sl_read=slice(0,-1,1), 
         ax[0].axis('auto')
         ax[1].axis('auto')
         fig.tight_layout()
+        plt.close()
+    return fig
