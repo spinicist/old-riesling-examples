@@ -80,7 +80,6 @@ def kspace(filename, dset='noncartesian', vol=0, coil=0, sl_read=slice(0, -1, 1)
 def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(0, 512, 1)):
     with h5py.File(filename) as f:
         data = np.array(f[dset][sl_spoke, sl_read]).T
-        print(data[:, 0])
         fig, ax = plt.subplots(1, 1, figsize=(12, 6))
         im = ax.imshow(data, interpolation='nearest')
         ax.set_xlabel('Spoke')

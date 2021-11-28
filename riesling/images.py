@@ -59,12 +59,14 @@ def single(file, dset='image', title=None, ix=None, iy=None, iz=None, iv=0, cmap
     if not vmax:
         vmax = lims[1]
 
-    fig, ax = plt.subplots(1, 3, figsize=(16, 6), facecolor='black', constrained_layout=True)
+    fig, ax = plt.subplots(1, 3, figsize=(
+        16, 6), facecolor='black', constrained_layout=True)
     ax[0].imshow(np.squeeze(img[iz, :, :]), cmap=cmap, vmin=vmin, vmax=vmax)
     ax[0].axis('image')
     ax[1].imshow(np.squeeze(img[:, iy, :]), cmap=cmap, vmin=vmin, vmax=vmax)
     ax[1].axis('image')
-    im = ax[2].imshow(np.squeeze(img[:, :, ix]), cmap=cmap, vmin=vmin, vmax=vmax)
+    im = ax[2].imshow(np.squeeze(img[:, :, ix]),
+                      cmap=cmap, vmin=vmin, vmax=vmax)
     ax[2].axis('image')
     cb = fig.colorbar(im, ax=ax, location='right')
     cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
@@ -72,6 +74,7 @@ def single(file, dset='image', title=None, ix=None, iy=None, iz=None, iv=0, cmap
     fig.suptitle(title, color='white')
     plt.close()
     return fig
+
 
 def multi(file, dset='basis-images', title=None, ix=None, iy=None, iz=None, iv=0, vmin=None, vmax=None):
     """3 plane plot of 3D basis image data in an h5 file
@@ -82,7 +85,7 @@ def multi(file, dset='basis-images', title=None, ix=None, iy=None, iz=None, iv=0
     f = h5py.File(file, 'r')
     I = f[dset][:]
     if I.ndim == 4:
-      I = I[np.newaxis, :, :, :, :]
+        I = I[np.newaxis, :, :, :, :]
     [nv, nz, ny, nx, npar] = np.shape(I)
 
     if not (ix or iy or iz):
@@ -161,9 +164,9 @@ def slices(file, dset='image', title=None, nrows=1, iz=None, cmap='gray', vmin=N
     for iv in range(nv):
         data = np.squeeze(img[iv, :, :])
         if nrows == 1:
-          this_ax = ax[iv]
+            this_ax = ax[iv]
         else:
-          this_ax = ax[int(np.floor(iv / ncols)), iv % ncols]
+            this_ax = ax[int(np.floor(iv / ncols)), iv % ncols]
         this_ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
         this_ax.axis('off')
     fig.tight_layout(pad=0)
@@ -208,9 +211,9 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
         colorized = smap.to_rgba(pha_slice, alpha=1., bytes=False)[:, :, 0:3]
         colorized = colorized * mag_slice[:, :, None]
         if nrows == 1:
-          this_ax = ax[ic]
+            this_ax = ax[ic]
         else:
-          this_ax = ax[int(np.floor(ic / ncols)), ic % ncols]
+            this_ax = ax[int(np.floor(ic / ncols)), ic % ncols]
         this_ax.imshow(colorized)
         this_ax.axis('off')
     fig.tight_layout(pad=0)
@@ -251,17 +254,13 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', sli=2, 
         iz = int(nz/2)
 
     fn = get_comp(component)
-    print(sli)
-    if sli==0:
-        print('sli0')
+    if sli == 0:
         img1 = fn(np.squeeze(I1[iv, iz, :, :]))
         img2 = fn(np.squeeze(I2[iv, iz, :, :]))
-    elif sli==1:
-        print('sli1')
+    elif sli == 1:
         img1 = fn(np.squeeze(I1[iv, :, iz, :]))
         img2 = fn(np.squeeze(I2[iv, :, iz, :]))
     else:
-        print('sli2')
         img1 = fn(np.squeeze(I1[iv, :, :, iz]))
         img2 = fn(np.squeeze(I2[iv, :, :, iz]))
 
