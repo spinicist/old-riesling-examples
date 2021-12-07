@@ -54,11 +54,14 @@ def single(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cma
 
     fig, ax = plt.subplots(1, 3, figsize=(
         16, 6), facecolor='black', constrained_layout=True)
-    ax[0].imshow(np.squeeze(img[pos[2], :, :]), cmap=cmap, vmin=clim[0], vmax=clim[1])
+    ax[0].imshow(np.squeeze(img[pos[2], :, :]),
+                 cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[0].axis('image')
-    ax[1].imshow(np.squeeze(img[:, pos[1], :]), cmap=cmap, vmin=clim[0], vmax=clim[1])
+    ax[1].imshow(np.squeeze(img[:, pos[1], :]),
+                 cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[1].axis('image')
-    im = ax[2].imshow(np.squeeze(img[:, :, pos[0]]), cmap=cmap, vmin=clim[0], vmax=clim[1])
+    im = ax[2].imshow(np.squeeze(img[:, :, pos[0]]),
+                      cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[2].axis('image')
     cb = fig.colorbar(im, ax=ax, location='right')
     cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
@@ -93,8 +96,9 @@ def multi(file, dset='basis-images', title=None, pos=None, iv=0, comp='mag', cma
         clim = [np.nanpercentile(img, (2, 98)) for img in imglist]
         for ie in range(ne):
             if clim[ie][0] < 0:
-                clim[ie][0] = -np.maximum(np.absolute(clim[ie][0]),clim[ie][1])
-                clim[ie][1] = np.maximum(np.absolute(clim[ie][0]),clim[ie][1])
+                clim[ie][0] = - \
+                    np.maximum(np.absolute(clim[ie][0]), clim[ie][1])
+                clim[ie][1] = np.maximum(np.absolute(clim[ie][0]), clim[ie][1])
                 if not cmap:
                     cmap = 'cet_bkr'
     if not cmap:
@@ -213,7 +217,7 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
     return fig
 
 
-def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', sli=2, iz=None, iv=0, ie=0, comp='mag', cmap='gray',clim=None, diffscale=1):
+def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', sli=2, iz=None, iv=0, ie=0, comp='mag', cmap='gray', clim=None, diffscale=1):
     """Plot the difference between two images
 
     Args:
@@ -270,5 +274,51 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', sli=2, 
     ax[2].axis('off')
     ax[2].set_title(f'Diff x{diffscale}', color='white')
     fig.tight_layout(pad=0)
+    plt.close()
+    return fig
+
+
+def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', cmap='plasma', clim=None):
+    """3 plane plot of 3D image data in an h5 file
+
+    Args:
+        file  (str): Path to .h5 file
+        dset  (str): Dataset within h5 file to plot. Default "image"
+        title (str): Plot title. Defaults to ''
+        pos   (int * 3): Slice indices
+        iv    (int): Volume index
+        ie    (int): Echo/basis index
+        comp  (str): mag/pha/real/imaginary. Default mag
+        cmap  (str): colormap. Defaults to 'gray'
+        clim  (float * 2): Window limits. Defaults to (2,98) percentiles
+    """
+
+    with h5py.File(file, 'r') as f:
+        I = f[dset][:]
+
+    [nz, ny, nx, ne, nc] = np.shape(I)
+    if not (pos):
+        pos = (int(nx/2), int(ny/2), int(nz/2))
+
+    fn = get_comp(comp)
+    img = fn(np.squeeze(I[:, :, :, ie, ic]))
+    if not clim:
+        clim = np.nanpercentile(img, (2, 98))
+
+    fig, ax = plt.subplots(1, 3, figsize=(
+        16, 6), facecolor='black', constrained_layout=True)
+    ax[0].imshow(np.squeeze(img[pos[2], :, :]),
+                 cmap=cmap, vmin=clim[0], vmax=clim[1])
+    ax[0].axis('image')
+    ax[1].imshow(np.squeeze(img[:, pos[1], :]),
+                 cmap=cmap, vmin=clim[0], vmax=clim[1])
+    ax[1].axis('image')
+    im = ax[2].imshow(np.squeeze(img[:, :, pos[0]]),
+                      cmap=cmap, vmin=clim[0], vmax=clim[1])
+    ax[2].axis('image')
+    cb = fig.colorbar(im, ax=ax, location='right')
+    cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
+    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+    fig.suptitle(title, color='white')
     plt.close()
     return fig
