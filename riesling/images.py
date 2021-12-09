@@ -88,32 +88,23 @@ def multi(file, dset='basis-images', title=None, pos=None, iv=0, comp='mag', cma
     img = fn(np.squeeze(I[iv, :, :, :, :]))
     if not clim:
         clim = np.nanpercentile(img, (2, 98))
-
-    imgs = np.real(np.squeeze(I[iv, :, :, :, :]))
-    imglist = [imgs[:, :, :, ii] for ii in range(ne)]
-
-    if not clim:
-        clim = [np.nanpercentile(img, (2, 98)) for img in imglist]
-        for ie in range(ne):
-            if clim[ie][0] < 0:
-                clim[ie][0] = - \
-                    np.maximum(np.absolute(clim[ie][0]), clim[ie][1])
-                clim[ie][1] = np.maximum(np.absolute(clim[ie][0]), clim[ie][1])
-                if not cmap:
-                    cmap = 'cet_bkr'
+        if clim[0] < 0:
+            clim[0] = -np.maximum(np.absolute(clim[0]), clim[1])
+            if not cmap:
+                cmap = 'cet_bkr'
     if not cmap:
         cmap = 'gray'
 
     fig, ax = plt.subplots(ne, 3, figsize=(16, 6*ne), facecolor='black')
     for ie in range(ne):
-        ax[ie, 0].imshow(np.squeeze(imgs[pos[2], :, :, ie]),
-                         cmap=cmap, vmin=clim[ie][0], vmax=clim[ie][1])
+        ax[ie, 0].imshow(np.squeeze(img[pos[2], :, :, ie]),
+                         cmap=cmap, vmin=clim[0], vmax=clim[1])
         ax[ie, 0].axis('off')
-        ax[ie, 1].imshow(np.squeeze(imgs[:, pos[1], :, ie]),
-                         cmap=cmap, vmin=clim[ie][0], vmax=clim[ie][1])
+        ax[ie, 1].imshow(np.squeeze(img[:, pos[1], :, ie]),
+                         cmap=cmap, vmin=clim[0], vmax=clim[1])
         ax[ie, 1].axis('off')
-        im = ax[ie, 2].imshow(np.squeeze(imgs[:, :, pos[0], ie]),
-                              cmap=cmap, vmin=clim[ie][0], vmax=clim[ie][1])
+        im = ax[ie, 2].imshow(np.squeeze(img[:, :, pos[0], ie]),
+                              cmap=cmap, vmin=clim[0], vmax=clim[1])
         ax[ie, 2].axis('off')
         cb = fig.colorbar(im, location='right', ax=ax[ie, 2])
         cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
