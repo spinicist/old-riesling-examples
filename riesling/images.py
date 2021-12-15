@@ -40,28 +40,34 @@ def single(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cma
         clim  (float * 2): Window limits. Defaults to (2,98) percentiles
     """
 
-    f = h5py.File(file, 'r')
-    I = f[dset][:]
+    fn = get_comp(comp)
 
-    [nv, nz, ny, nx, ne] = np.shape(I)
+    with h5py.File(file, 'r') as f:
+        dsetw = f[dset]
+        if dsetw.ndim == 4:
+            # Channels only image, e.g. phantom
+            [nz, ny, nx, ne] = dsetw.shape
+            img = fn(dsetw[:, :, :, ie])
+        else:
+            # Assume 5D
+            [nv, nz, ny, nx, ne] = dsetw.shape
+            img = fn(dsetw[iv, :, :, :, ie])
+
     if not (pos):
         pos = (int(nx/2), int(ny/2), int(nz/2))
-
-    fn = get_comp(comp)
-    img = fn(np.squeeze(I[iv, :, :, :, ie]))
     if not clim:
         clim = np.nanpercentile(img, (2, 98))
 
     fig, ax = plt.subplots(1, 3, figsize=(
         16, 6), facecolor='black', constrained_layout=True)
     ax[0].imshow(np.squeeze(img[pos[2], :, :]),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[0].axis('image')
     ax[1].imshow(np.squeeze(img[:, pos[1], :]),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[1].axis('image')
     im = ax[2].imshow(np.squeeze(img[:, :, pos[0]]),
-                      cmap=cmap, vmin=clim[0], vmax=clim[1])
+                      cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[2].axis('image')
     cb = fig.colorbar(im, ax=ax, location='right')
     cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
@@ -98,13 +104,13 @@ def multi(file, dset='basis-images', title=None, pos=None, iv=0, comp='mag', cma
     fig, ax = plt.subplots(ne, 3, figsize=(16, 6*ne), facecolor='black')
     for ie in range(ne):
         ax[ie, 0].imshow(np.squeeze(img[pos[2], :, :, ie]),
-                         cmap=cmap, vmin=clim[0], vmax=clim[1])
+                         cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
         ax[ie, 0].axis('off')
         ax[ie, 1].imshow(np.squeeze(img[:, pos[1], :, ie]),
-                         cmap=cmap, vmin=clim[0], vmax=clim[1])
+                         cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
         ax[ie, 1].axis('off')
         im = ax[ie, 2].imshow(np.squeeze(img[:, :, pos[0], ie]),
-                              cmap=cmap, vmin=clim[0], vmax=clim[1])
+                              cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
         ax[ie, 2].axis('off')
         cb = fig.colorbar(im, location='right', ax=ax[ie, 2])
         cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
@@ -153,7 +159,8 @@ def slices(file, dset='image', title=None, nrows=1, iz=None, ie=0, comp='mag', c
             this_ax = ax[iv]
         else:
             this_ax = ax[int(np.floor(iv / ncols)), iv % ncols]
-        this_ax.imshow(data, cmap=cmap, vmin=clim[0], vmax=clim[1])
+        this_ax.imshow(data, cmap=cmap,
+                       vmin=clim[0], vmax=clim[1], origin='lower')
         this_ax.axis('off')
     fig.tight_layout(pad=0)
     fig.suptitle(title, color='white')
@@ -185,7 +192,7 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
     norm = colors.Normalize(vmin=-np.pi, vmax=np.pi)
     smap = cm.ScalarMappable(norm=norm, cmap=cc.m_colorwheel)
 
-    data = np.squeeze(I[iz, :, :, :])
+    data = I[iz, :, :, :]
     pha = np.angle(data)
     mag = np.abs(data)
     lims = np.nanpercentile(mag, (2, 98))
@@ -197,10 +204,13 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
         colorized = smap.to_rgba(pha_slice, alpha=1., bytes=False)[:, :, 0:3]
         colorized = colorized * mag_slice[:, :, None]
         if nrows == 1:
-            this_ax = ax[ic]
+            if nc > 1:
+                this_ax = ax[ic]
+            else:
+                this_ax = ax
         else:
             this_ax = ax[int(np.floor(ic / ncols)), ic % ncols]
-        this_ax.imshow(colorized)
+        this_ax.imshow(colorized, origin='lower')
         this_ax.axis('off')
     fig.tight_layout(pad=0)
     fig.suptitle(title, color='white')
@@ -254,14 +264,15 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', sli=2, 
         clim = np.nanpercentile(img1, (2, 98))
 
     fig, ax = plt.subplots(1, 3, figsize=(16, 6), facecolor='black')
-    ax[0].imshow(img1, cmap=cmap, vmin=clim[0], vmax=clim[1])
+    ax[0].imshow(img1, cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[0].axis('off')
     ax[0].set_title(title1, color='white')
-    ax[1].imshow(img2, cmap=cmap, vmin=clim[0], vmax=clim[1])
+    ax[1].imshow(img2, cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[1].axis('off')
     ax[1].set_title(title2, color='white')
     diff = diffscale * (img2 - img1)
-    ax[2].imshow(diff, cmap=cc.m_bkr, vmin=-clim[1], vmax=clim[1])
+    ax[2].imshow(diff, cmap=cc.m_bkr, vmin=-clim[1],
+                 vmax=clim[1], origin='lower')
     ax[2].axis('off')
     ax[2].set_title(f'Diff x{diffscale}', color='white')
     fig.tight_layout(pad=0)
@@ -294,18 +305,18 @@ def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', c
     fn = get_comp(comp)
     img = fn(np.squeeze(I[:, :, :, ie, ic]))
     if not clim:
-        clim = np.nanpercentile(img, (2, 98))
-
+        # There are a lot of zeros in typical cartesian grids. Use an expanded range
+        clim = np.nanpercentile(img, (0, 100))
     fig, ax = plt.subplots(1, 3, figsize=(
         16, 6), facecolor='black', constrained_layout=True)
     ax[0].imshow(np.squeeze(img[pos[2], :, :]),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[0].axis('image')
     ax[1].imshow(np.squeeze(img[:, pos[1], :]),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[1].axis('image')
     im = ax[2].imshow(np.squeeze(img[:, :, pos[0]]),
-                      cmap=cmap, vmin=clim[0], vmax=clim[1])
+                      cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[2].axis('image')
     cb = fig.colorbar(im, ax=ax, location='right')
     cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
