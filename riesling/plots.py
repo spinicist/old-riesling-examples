@@ -61,9 +61,13 @@ def traj3d(filename, sl_read=slice(0, -1, 1), sl_spoke=slice(0, -1, 1)):
     return fig
 
 
-def kspace(filename, dset='noncartesian', vol=0, coil=0, sl_read=slice(0, -1, 1), sl_spoke=slice(0, 512, 1)):
+def kspace(filename, dset='noncartesian', vol=0, coil=0, sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1)):
     with h5py.File(filename) as f:
-        data = np.array(f[dset][vol, sl_spoke, sl_read, coil]).squeeze().T
+        dsetw = f[dset]
+        if dsetw.ndim == 3:
+            data = np.array(f[dset][sl_spoke, sl_read, coil]).squeeze().T
+        else:
+            data = np.array(f[dset][vol, sl_spoke, sl_read, coil]).squeeze().T
         fig, ax = plt.subplots(2, 1, figsize=(12, 6))
         ax[0].imshow(np.log(np.abs(data+1E-10)))
         ax[1].imshow(np.angle(data))
@@ -77,7 +81,7 @@ def kspace(filename, dset='noncartesian', vol=0, coil=0, sl_read=slice(0, -1, 1)
     return fig
 
 
-def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(0, 512, 1)):
+def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(None, None, 1)):
     with h5py.File(filename) as f:
         data = np.array(f[dset][sl_spoke, sl_read]).T
         fig, ax = plt.subplots(1, 1, figsize=(12, 6))
