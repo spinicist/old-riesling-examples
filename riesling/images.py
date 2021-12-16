@@ -143,7 +143,7 @@ def slices(file, dset='image', title=None, nrows=1, iz=None, ie=0, comp='mag', c
     if not iz:
         iz = int(nz/2)
 
-    ncols = int(np.floor(nv / nrows))
+    ncols = int(np.ceil(nv / nrows))
 
     fn = get_comp(comp)
     img = fn(np.squeeze(I[:, iz, :, :, ie]))
@@ -184,7 +184,7 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
     if not iz:
         iz = int(nz/2)
 
-    ncols = int(np.floor(nc / nrows))
+    ncols = int(np.ceil(nc / nrows))
 
     fig, ax = plt.subplots(nrows, ncols, figsize=(
         3*ncols, 3*nrows), facecolor='black')
