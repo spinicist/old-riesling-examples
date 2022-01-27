@@ -212,8 +212,8 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
             this_ax = ax[int(np.floor(ic / ncols)), ic % ncols]
         this_ax.imshow(colorized, origin='lower')
         this_ax.axis('off')
-    fig.tight_layout(pad=0)
     fig.suptitle(title, color='white')
+    fig.tight_layout(pad=0)
     plt.close()
     return fig
 

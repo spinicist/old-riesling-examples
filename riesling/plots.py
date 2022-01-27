@@ -61,22 +61,27 @@ def traj3d(filename, sl_read=slice(0, -1, 1), sl_spoke=slice(0, -1, 1)):
     return fig
 
 
-def kspace(filename, dset='noncartesian', vol=0, coil=0, sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1)):
+def kspace(filename, dset='noncartesian', title=None, vol=0, coil=0, sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1)):
     with h5py.File(filename) as f:
         dsetw = f[dset]
         if dsetw.ndim == 3:
             data = np.array(f[dset][sl_spoke, sl_read, coil]).squeeze().T
         else:
             data = np.array(f[dset][vol, sl_spoke, sl_read, coil]).squeeze().T
-        fig, ax = plt.subplots(2, 1, figsize=(12, 6))
-        ax[0].imshow(np.log(np.abs(data+1E-10)))
-        ax[1].imshow(np.angle(data))
+        fig, ax = plt.subplots(2, 1, figsize=(12, 6), facecolor='w')
+        mag = ax[0].imshow(np.log(np.abs(data+1E-10)),
+                           interpolation='nearest', cmap='cet_bmy')
+        fig.colorbar(mag, ax=ax[0], location='right')
+        ph = ax[1].imshow(
+            np.angle(data), interpolation='nearest', cmap='cet_colorwheel', vmin=-np.pi, vmax=np.pi)
+        fig.colorbar(ph, ax=ax[1], location='right')
         ax[1].set_xlabel('Spoke')
         ax[0].set_ylabel('Readout')
         ax[1].set_ylabel('Readout')
         ax[0].axis('auto')
         ax[1].axis('auto')
-        fig.tight_layout()
+        fig.tight_layout(pad=0)
+        fig.suptitle(title)
         plt.close()
     return fig
 
