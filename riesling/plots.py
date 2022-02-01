@@ -61,20 +61,29 @@ def traj3d(filename, sl_read=slice(0, -1, 1), sl_spoke=slice(0, -1, 1)):
     return fig
 
 
-def kspace(filename, dset='noncartesian', title=None, vol=0, coil=0, sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1)):
+def kspace(filename, dset='noncartesian', title=None, vol=0, coil=0,
+           sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1),
+           comp='mag'):
     with h5py.File(filename) as f:
         dsetw = f[dset]
         if dsetw.ndim == 3:
             data = np.array(f[dset][sl_spoke, sl_read, coil]).squeeze().T
         else:
             data = np.array(f[dset][vol, sl_spoke, sl_read, coil]).squeeze().T
+        dmax = np.max(np.abs(data))
         fig, ax = plt.subplots(2, 1, figsize=(12, 6), facecolor='w')
-        mag = ax[0].imshow(np.log(np.abs(data+1E-10)),
-                           interpolation='nearest', cmap='cet_bmy')
-        fig.colorbar(mag, ax=ax[0], location='right')
-        ph = ax[1].imshow(
-            np.angle(data), interpolation='nearest', cmap='cet_colorwheel', vmin=-np.pi, vmax=np.pi)
-        fig.colorbar(ph, ax=ax[1], location='right')
+        if comp == 'mag':
+            im0 = ax[0].imshow(np.log(np.abs(data+1E-10)), vmin=np.log(1E-10), vmax=np.log(dmax),
+                               interpolation='nearest', cmap='cet_bmy')
+            im1 = ax[1].imshow(np.angle(data), interpolation='nearest',
+                               cmap='cet_colorwheel', vmin=-np.pi, vmax=np.pi)
+        else:
+            im0 = ax[0].imshow(np.real(data), interpolation='nearest', cmap='cet_coolwarm',
+                               vmin=-dmax, vmax=dmax)
+            im1 = ax[1].imshow(np.imag(data), interpolation='nearest', cmap='cet_coolwarm',
+                               vmin=-dmax, vmax=dmax)
+        fig.colorbar(im0, ax=ax[0], location='right')
+        fig.colorbar(im1, ax=ax[1], location='right')
         ax[1].set_xlabel('Spoke')
         ax[0].set_ylabel('Readout')
         ax[1].set_ylabel('Readout')
