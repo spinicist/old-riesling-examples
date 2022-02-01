@@ -218,7 +218,10 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
     return fig
 
 
-def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', sli=2, iz=None, iv=0, ie=0, comp='mag', cmap='gray', clim=None, diffscale=1):
+def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2',
+         sli=2, iz=None, iv=0, ie=0, comp='mag',
+         cmap='gray', clim=None,
+         diffscale=1, difflim=None):
     """Plot the difference between two images
 
     Args:
@@ -261,7 +264,13 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', sli=2, 
         img2 = fn(np.squeeze(I2[iv, :, :, iz, ie]))
 
     if not clim:
-        clim = np.nanpercentile(img1, (2, 98))
+        clim1 = np.nanpercentile(img1, (2, 98))
+        clim2 = np.nanpercentile(img2, (2, 98))
+        clim = (np.amin((clim1[0], clim2[0])), np.amax((clim1[1], clim2[1])))
+    diff = diffscale * (img2 - img1)
+    if not difflim:
+        difflim = np.nanpercentile(np.abs(diff), (2, 98))
+        difflim = (-difflim[1], difflim[1])
 
     fig, ax = plt.subplots(1, 3, figsize=(16, 6), facecolor='black')
     ax[0].imshow(img1, cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
@@ -270,11 +279,13 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2', sli=2, 
     ax[1].imshow(img2, cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[1].axis('off')
     ax[1].set_title(title2, color='white')
-    diff = diffscale * (img2 - img1)
-    ax[2].imshow(diff, cmap=cc.m_bkr, vmin=-clim[1],
-                 vmax=clim[1], origin='lower')
+    diffim = ax[2].imshow(diff, cmap=cc.m_bkr, vmin=difflim[0],
+                          vmax=difflim[1], origin='lower')
     ax[2].axis('off')
     ax[2].set_title(f'Diff x{diffscale}', color='white')
+    cb = fig.colorbar(diffim, ax=ax[2], location='right')
+    cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
+    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
     fig.tight_layout(pad=0)
     plt.close()
     return fig
