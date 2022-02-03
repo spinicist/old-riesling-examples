@@ -59,7 +59,7 @@ def single(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cma
         clim = np.nanpercentile(img, (2, 98))
 
     fig, ax = plt.subplots(1, 3, figsize=(
-        16, 6), facecolor='black', constrained_layout=True)
+        16, 6), facecolor='black')
     ax[0].imshow(np.squeeze(img[pos[2], :, :]),
                  cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[0].axis('image')
@@ -69,10 +69,10 @@ def single(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cma
     im = ax[2].imshow(np.squeeze(img[:, :, pos[0]]),
                       cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
     ax[2].axis('image')
-    cb = fig.colorbar(im, ax=ax, location='right')
-    cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
+    cb = fig.colorbar(im, location='right', ax=ax[2])
     cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
     fig.suptitle(title, color='white')
+    fig.tight_layout(pad=0)
     plt.close()
     return fig
 
