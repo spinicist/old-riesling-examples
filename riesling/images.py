@@ -3,8 +3,9 @@ import h5py
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as colors
-import colorcet as cc
+import cmasher
 import warnings
+import contextlib
 plt.rcParams['font.size'] = 20
 
 
@@ -23,6 +24,26 @@ def get_comp(component):
         fn = np.real
         warnings.warn('Unknown component, taking real')
     return fn
+
+
+def mid_slice(axis, nx, ny, nz):
+    if axis == 'z':
+        slpos = int(np.floor(nz / 2))
+    elif axis == 'y':
+        slpos = int(np.floor(ny / 2))
+    else:
+        slpos = int(np.floor(nx / 2))
+    return slpos
+
+
+def get_slice(img, sl, axis):
+    if axis == 'z':
+        data = img[sl, :, :].T
+    elif axis == 'y':
+        data = img[:, sl, :].T
+    else:
+        data = img[:, :, sl].T
+    return data
 
 
 def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cmap='gray', clim=None):
@@ -54,19 +75,19 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cma
             img = fn(dsetw[iv, :, :, :, ie])
 
     if not (pos):
-        pos = (int(nx/2), int(ny/2), int(nz/2))
+        pos = (int(nz/2), int(ny/2), int(nx/2))
     if not clim:
         clim = np.nanpercentile(img, (2, 98))
 
     fig, ax = plt.subplots(1, 3, figsize=(
         16, 6), facecolor='black')
-    ax[0].imshow(np.squeeze(img[pos[2], :, :]).T,
+    ax[0].imshow(get_slice(img, pos[2], 'x'),
                  cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[0].axis('image')
-    ax[1].imshow(np.squeeze(img[:, pos[1], :]).T,
+    ax[1].imshow(get_slice(img, pos[1], 'y'),
                  cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[1].axis('image')
-    im = ax[2].imshow(np.squeeze(img[:, :, pos[0]]).T,
+    im = ax[2].imshow(get_slice(img, pos[0], 'z'),
                       cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[2].axis('image')
     cb = fig.colorbar(im, location='right', ax=ax[2])
@@ -129,14 +150,9 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
             sl = (ir * ncols) + ic
             if sl < nslice:
                 ax = sl_ax[ic]
-                if axis == 'z':
-                    data = np.squeeze(img[slpos[sl], :, :])
-                elif axis == 'y':
-                    data = np.squeeze(img[:, slpos[sl], :])
-                else:
-                    data = np.squeeze(img[:, :, slpos[sl]])
+                data = get_slice(img, slpos[sl], axis)
                 im = ax.imshow(data, cmap=cmap,
-                               vmin=clim[0], vmax=clim[1], origin='lower')
+                               vmin=clim[0], vmax=clim[1])
                 ax.axis('off')
     cb = fig.colorbar(im, location='right')
     cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
@@ -171,32 +187,10 @@ def series(file, dset='image', title=None, which='echoes', io=0,
     fn = get_comp(comp)
     if which == 'echoes':
         nslice = ne
-        if axis == 'z':
-            if not slpos:
-                slpos = int(np.floor(nz / 2))
-            img = fn(I[io, slpos, :, :, :]).transpose((2, 0, 1))
-        if axis == 'y':
-            if not slpos:
-                slpos = int(np.floor(ny / 2))
-            img = fn(I[io, :, slpos, :, :]).transpose((2, 0, 1))
-        if axis == 'x':
-            if not slpos:
-                slpos = int(np.floor(nx / 2))
-            img = fn(I[io, :, :, slpos, :]).transpose((2, 0, 1))
-    else:
-        nslice = nv
-        if axis == 'z':
-            if not slpos:
-                slpos = nz / 2
-            img = fn(I[:, slpos, :, :, io])
-        if axis == 'y':
-            if not slpos:
-                slpos = ny / 2
-            img = fn(I[:, :, slpos, :, io])
-        if axis == 'x':
-            if not slpos:
-                slpos = nx / 2
-            img = fn(I[:, :, :, slpos, io])
+        img = fn(I[io, :, :, :, :].transpose((3, 0, 1, 2)))
+
+    if not slpos:
+        slpos = mid_slice(axis, nx, ny, nz)
 
     if not clim:
         clim = np.nanpercentile(img, (2, 98))
@@ -217,9 +211,8 @@ def series(file, dset='image', title=None, which='echoes', io=0,
             sl = (ir * ncols) + ic
             if sl < nslice:
                 ax = sl_ax[ic]
-                data = np.squeeze(img[sl, :, :])
-                im = ax.imshow(data.T, cmap=cmap,
-                               vmin=clim[0], vmax=clim[1])
+                data = get_slice(img, slpos, axis)
+                im = ax.imshow(data, cmap=cmap, vmin=clim[0], vmax=clim[1])
                 ax.axis('off')
     fig.tight_layout(pad=0)
     cb = fig.colorbar(im, location='right', ax=all_ax)
@@ -230,7 +223,7 @@ def series(file, dset='image', title=None, which='echoes', io=0,
     return fig
 
 
-def sense(file, dset='sense', title=None, nrows=1, iz=None):
+def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
     """Plot a slice through each channel of a SENSE dataset
 
     Args:
@@ -243,8 +236,8 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
     I = f[dset][:]
 
     [nz, ny, nx, nc] = np.shape(I)
-    if not iz:
-        iz = int(nz/2)
+    if not slpos:
+        slpos = mid_slice(axis, nx, ny, nz)
 
     ncols = int(np.ceil(nc / nrows))
 
@@ -252,17 +245,16 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
         3*ncols, 3*nrows), facecolor='black')
 
     norm = colors.Normalize(vmin=-np.pi, vmax=np.pi)
-    smap = cm.ScalarMappable(norm=norm, cmap=cc.m_colorwheel)
+    smap = cm.ScalarMappable(norm=norm, cmap='cmr.infinity')
 
-    data = I[iz, :, :, :]
-    pha = np.angle(data)
-    mag = np.abs(data)
+    pha = np.angle(I)
+    mag = np.abs(I)
     lims = np.nanpercentile(mag, (2, 98))
     mag = np.clip((mag - lims[0]) / (lims[1] - lims[0]), 0, 1)
 
     for ic in range(nc):
-        pha_slice = np.squeeze(pha[:, :, ic])
-        mag_slice = np.squeeze(mag[:, :, ic])
+        pha_slice = get_slice(pha[:, :, :, ic], slpos, axis)
+        mag_slice = get_slice(mag[:, :, :, ic], slpos, axis)
         colorized = smap.to_rgba(pha_slice, alpha=1., bytes=False)[:, :, 0:3]
         colorized = colorized * mag_slice[:, :, None]
         if nrows == 1:
@@ -272,7 +264,7 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
                 this_ax = ax
         else:
             this_ax = ax[int(np.floor(ic / ncols)), ic % ncols]
-        this_ax.imshow(colorized, origin='lower')
+        this_ax.imshow(colorized)
         this_ax.axis('off')
     fig.suptitle(title, color='white')
     fig.tight_layout(pad=0)
@@ -281,7 +273,7 @@ def sense(file, dset='sense', title=None, nrows=1, iz=None):
 
 
 def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2',
-         sli=2, iz=None, iv=0, ie=0, comp='mag',
+         axis='z', slpos=None, iv=0, ie=0, comp='mag',
          cmap='gray', clim=None,
          diffscale=1, difflim=None):
     """Plot the difference between two images
@@ -311,19 +303,12 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2',
         return
 
     [nv, nz, ny, nx, ne] = np.shape(I1)
-    if not iz:
-        iz = int(nz/2)
+    if not slpos:
+        slpos = mid_slice(axis, nx, ny, nz)
 
     fn = get_comp(comp)
-    if sli == 0:
-        img1 = fn(np.squeeze(I1[iv, iz, :, :, ie]))
-        img2 = fn(np.squeeze(I2[iv, iz, :, :, ie]))
-    elif sli == 1:
-        img1 = fn(np.squeeze(I1[iv, :, iz, :, ie]))
-        img2 = fn(np.squeeze(I2[iv, :, iz, :, ie]))
-    else:
-        img1 = fn(np.squeeze(I1[iv, :, :, iz, ie]))
-        img2 = fn(np.squeeze(I2[iv, :, :, iz, ie]))
+    img1 = fn(I1[iv, :, :, :, ie])
+    img2 = fn(I2[iv, :, :, :, ie])
 
     if not clim:
         clim1 = np.nanpercentile(img1, (2, 98))
@@ -335,14 +320,16 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2',
         difflim = (-difflim[1], difflim[1])
 
     fig, ax = plt.subplots(1, 3, figsize=(16, 6), facecolor='black')
-    ax[0].imshow(img1, cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
+    ax[0].imshow(get_slice(img1, slpos, axis),
+                 cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[0].axis('off')
     ax[0].set_title(title1, color='white')
-    ax[1].imshow(img2, cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
+    ax[1].imshow(get_slice(img2, slpos, axis),
+                 cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[1].axis('off')
     ax[1].set_title(title2, color='white')
-    diffim = ax[2].imshow(diff, cmap=cc.m_bkr, vmin=difflim[0],
-                          vmax=difflim[1], origin='lower')
+    diffim = ax[2].imshow(get_slice(diff, slpos, axis),
+                          cmap='cmr.iceburn', vmin=difflim[0], vmax=difflim[1])
     ax[2].axis('off')
     ax[2].set_title(f'Diff x{diffscale}', color='white')
     cb = fig.colorbar(diffim, ax=ax[2], location='right')
@@ -353,7 +340,105 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2',
     return fig
 
 
-def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', cmap='plasma', clim=None):
+def diffN(fnames, titles=None, dset='image', axis='z', slpos=None, iv=0, ie=0,
+          comp='mag', cmap='gray', clim=None, difflim=None):
+    """Plot the difference between two images
+
+    Args:
+        fnames (str): Paths to .h5 files
+        titles (str): Titles
+        dset (str): Dataset within h5 file to plot. Default "image"
+        title (str): Plot title. Defaults to ''.
+        sli  (int): Slice axis (0='x',1='y',2='z')
+        iz   (int): Slice index for z-axis. Default 2.
+        iv   (int): Volume to slice, default 0.
+        cmap (str): colormap. Defaults to 'gray'.
+        vmin (float): Lower window limit. Defaults to None.
+        vmax (float): Upper window limit. Defaults to None.
+        diffscale(float): Amount to inflate diffs by
+        comp (str, opt): mag/pha/real/imaginary. Default mag
+    """
+
+    with contextlib.ExitStack() as stack:
+        files = [stack.enter_context(h5py.File(fn, 'r')) for fn in fnames]
+        imgs = [f[dset][:] for f in files]
+        nI = len(imgs)
+
+        if titles is not None:
+            if len(titles) != len(fnames):
+                warnings.warn('Number of titles and files did not match')
+                return
+
+        for ii in range(nI):
+            for jj in range(nI - ii - 1):
+                if (np.shape(imgs[ii]) != np.shape(imgs[ii+1+jj])):
+                    warnings.warn('Image dimensions did not match')
+                    return
+
+        [nv, nz, ny, nx, ne] = np.shape(imgs[0])
+        if not slpos:
+            slpos = mid_slice(axis, nx, ny, nz)
+
+        fn = get_comp(comp)
+        slices = [get_slice(fn(img[iv, :, :, :, ie]), slpos, axis)
+                  for img in imgs]
+        diffs = []
+        for ii in range(nI):
+            diffs.append([])
+            for jj in range(ii):
+                diffs[ii].append(slices[ii] - slices[jj])
+
+        if not clim:
+            clim = (np.inf, -np.inf)
+            for sl in slices:
+                temp_lim = np.nanpercentile(sl, (2, 98))
+                clim = [np.amin([clim[0], temp_lim[0]]),
+                        np.amax([clim[1], temp_lim[1]])]
+
+        if not difflim:
+            difflim = (np.inf, -np.inf)
+            for ii in range(nI - 1):
+                for jj in range(ii):
+                    temp_lim = np.nanpercentile(diffs[ii][jj], (2, 98))
+                    difflim = [np.amin([difflim[0], temp_lim[0]]), np.amax(
+                        [difflim[1], temp_lim[1]])]
+            if difflim[0] < 0:
+                difflim[0] = np.amin([difflim[0], -difflim[1]])
+                difflim[1] = -difflim[0]
+
+        fig, ax = plt.subplots(nI, nI, figsize=(
+            nI*4, nI*4), facecolor='black')
+        for ii in range(nI):
+            imi = ax[ii, ii].imshow(slices[ii], cmap=cmap,
+                                    vmin=clim[0], vmax=clim[1])
+            ax[ii, ii].axis('off')
+            if titles is not None:
+                ax[ii, ii].text(0.5, 0.9, titles[ii], color='white',
+                                transform=ax[ii, ii].transAxes, ha='center')
+            for jj in range(ii):
+                imd = ax[jj, ii].imshow(diffs[ii][jj], cmap='cmr.iceburn',
+                                        vmin=difflim[0], vmax=difflim[1])
+                ax[jj, ii].axis('off')
+            for jj in range(ii, nI):
+                ax[jj, ii].set_facecolor('black')
+                ax[jj, ii].axis('off')
+        # axi = fig.add_axes([0.02, 0.2, 0.02, 0.6])
+        fig.subplots_adjust(wspace=0, hspace=0)
+        cbi = fig.colorbar(imi, ax=ax, location='left',
+                           aspect=50, pad=0.01, shrink=0.8)
+        cbi.ax.xaxis.set_tick_params(color='w', labelcolor='w')
+        cbi.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+        # axd = fig.add_axes([0.98, 0.2, 0.02, 0.6])
+        cbd = fig.colorbar(imd, ax=ax, location='right',
+                           aspect=50, pad=0.01, shrink=0.8)
+        cbd.ax.xaxis.set_tick_params(color='w', labelcolor='w')
+        cbd.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+
+        plt.close()
+        return fig
+
+
+def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', cmap='cmr.ember', clim=None):
     """3 plane plot of 3D image data in an h5 file
 
     Args:
@@ -381,14 +466,14 @@ def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', c
         # There are a lot of zeros in typical cartesian grids. Use an expanded range
         clim = np.nanpercentile(img, (0, 100))
     fig, ax = plt.subplots(2, 2, figsize=(8, 8), facecolor='black')
-    ax[0, 0].imshow(np.squeeze(img[pos[2], :, :]),
-                    cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
+    ax[0, 0].imshow(get_slice(img, pos[2], 'x'),
+                    cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[0, 0].axis('image')
-    ax[0, 1].imshow(np.squeeze(img[:, pos[1], :]),
-                    cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
+    ax[0, 1].imshow(get_slice(img, pos[1], 'y'),
+                    cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[0, 1].axis('image')
-    im = ax[1, 0].imshow(np.squeeze(img[:, :, pos[0]]),
-                         cmap=cmap, vmin=clim[0], vmax=clim[1], origin='lower')
+    im = ax[1, 0].imshow(get_slice(img, pos[0], 'x'),
+                         cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[1, 0].axis('image')
     ax[1, 1].set_facecolor('k')
     cb = fig.colorbar(im, ax=ax[1, 1], location='right')
