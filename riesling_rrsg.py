@@ -29,44 +29,36 @@ DTYPE_ThreeD = 1
 DTYPE_ThreeDStack = 2
 
 
-def create_info(matrix, voxel_size, read_points, read_gap, spokes_hi, spokes_lo, lo_scale,
-                channels, volumes, tr, origin, direction):
+def create_info(matrix, channels, read_points, spokes, volumes, tr, voxel_size, origin, direction):
     D = np.dtype({'names': [
         'type',
-        'channels',
         'matrix',
+        'channels',
         'read_points',
-        'read_gap',
-        'spokes_hi',
-        'spokes_lo',
-        'lo_scale',
+        'spokes',
         'volumes',
         'echoes',
         'tr',
         'voxel_size',
         'origin',
         'direction'
-        ],
+    ],
         'formats': [
-        '<i8',
         '<i8',
         ('<i8', (3,)),
         '<i8',
         '<i8',
         '<i8',
         '<i8',
-        '<f4',
-        '<i8',
         '<i8',
         '<f4',
         ('<f4', (3,)),
         ('<f4', (3,)),
         ('<f4', (9,))
-        ]
+    ]
     })
 
-    info = np.array([(DTYPE_ThreeDStack, channels, matrix, read_points, read_gap,
-                      spokes_hi, spokes_lo, lo_scale, volumes, 1,
+    info = np.array([(DTYPE_ThreeDStack, matrix, channels, read_points, spokes, volumes, 1,
                       tr, voxel_size, origin, direction)], dtype=D)
 
     return info
@@ -89,17 +81,15 @@ def convert_rrsg(input_fname, output_fname, matrix, voxel_size):
 
     # Create info struct
     read_points = np.shape(rawdata)[1]
-    read_gap = 0
-    spokes_hi = np.shape(rawdata)[2]
-    spokes_lo = 0
+    spokes = np.shape(rawdata)[2]
     channels = np.shape(rawdata)[3]
     volumes = 1
     tr = 1
     lo_scale = 1
     origin = [0, 0, 0]
     direction = [1, 0, 0, 0, 1, 0, 0, 0, 1]
-    h5_info = create_info(matrix, voxel_size, read_points, read_gap, spokes_hi, spokes_lo, lo_scale,
-                          channels, volumes, tr, origin, direction)
+    h5_info = create_info(matrix, channels, read_points, spokes,
+                          volumes, tr, voxel_size, origin, direction)
     # Reshape data
     rawdata = np.transpose(rawdata, [0, 2, 1, 3])
 
