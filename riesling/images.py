@@ -211,7 +211,7 @@ def series(file, dset='image', title=None, which='echoes', io=0,
             sl = (ir * ncols) + ic
             if sl < nslice:
                 ax = sl_ax[ic]
-                data = get_slice(img, slpos, axis)
+                data = get_slice(img[sl, :, :, :], slpos, axis)
                 im = ax.imshow(data, cmap=cmap, vmin=clim[0], vmax=clim[1])
                 ax.axis('off')
     fig.tight_layout(pad=0)
