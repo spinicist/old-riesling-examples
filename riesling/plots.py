@@ -27,28 +27,30 @@ def dynamics(path):
     plt.show()
 
 
-def traj2d(filename, sl_read=slice(0, -1, 1), sl_spoke=slice(0, -1, 1)):
+def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None)):
     with h5py.File(filename) as f:
         traj = np.array(f['trajectory'])
-        fig, ax = plt.subplots(1, 3, figsize=(12, 4))
+        fig, ax = plt.subplots(1, 3, figsize=(12, 4), facecolor='w')
+        c = np.tile(np.arange(len(traj[0, sl_read, 0])), len(
+            traj[sl_spoke, 0, 0]))
         ax[0].grid()
         ax[0].scatter(traj[sl_spoke, sl_read, 0],
-                      traj[sl_spoke, sl_read, 1], s=0.5)
+                      traj[sl_spoke, sl_read, 1], c=c, s=0.5)
         ax[0].set_aspect('equal')
         ax[1].grid()
         ax[1].scatter(traj[sl_spoke, sl_read, 0],
-                      traj[sl_spoke, sl_read, 2], s=0.5)
+                      traj[sl_spoke, sl_read, 2], c=c, s=0.5)
         ax[1].set_aspect('equal')
         ax[2].grid()
         ax[2].scatter(traj[sl_spoke, sl_read, 1],
-                      traj[sl_spoke, sl_read, 2], s=0.5)
+                      traj[sl_spoke, sl_read, 2], c=c, s=0.5)
         ax[2].set_aspect('equal')
         fig.tight_layout()
         plt.close()
     return fig
 
 
-def traj3d(filename, sl_read=slice(0, -1, 1), sl_spoke=slice(0, -1, 1)):
+def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None)):
     with h5py.File(filename) as ff:
         traj = np.array(ff['trajectory'])
         fig = plt.figure()
@@ -98,7 +100,7 @@ def kspace(filename, dset='noncartesian', title=None, vol=0, coil=0,
 def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(None, None, 1)):
     with h5py.File(filename) as f:
         data = np.array(f[dset][sl_spoke, sl_read]).T
-        fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+        fig, ax = plt.subplots(1, 1, figsize=(12, 6), facecolor='w')
         im = ax.imshow(data, interpolation='nearest')
         ax.set_xlabel('Spoke')
         ax.set_ylabel('Readout')
