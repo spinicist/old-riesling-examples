@@ -397,11 +397,11 @@ def diffN(fnames, titles=None, dset='image', axis='z', slpos=None, iv=0, ie=0,
 
         if not difflim:
             difflim = (np.inf, -np.inf)
-            for ii in range(nI - 1):
+            for ii in range(nI):
                 for jj in range(ii):
-                    temp_lim = np.nanpercentile(diffs[ii][jj], (2, 98))
-                    difflim = [np.amin([difflim[0], temp_lim[0]]), np.amax(
-                        [difflim[1], temp_lim[1]])]
+                    templim = np.nanpercentile(diffs[ii][jj], (2, 98))
+                    difflim = [np.amin([difflim[0], templim[0]]), np.amax(
+                        [difflim[1], templim[1]])]
             if difflim[0] < 0:
                 difflim[0] = np.amin([difflim[0], -difflim[1]])
                 difflim[1] = -difflim[0]
