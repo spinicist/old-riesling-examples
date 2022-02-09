@@ -382,18 +382,18 @@ def diffN(fnames, titles=None, dset='image', axis='z', slpos=None, iv=0, ie=0,
         fn = get_comp(comp)
         slices = [get_slice(fn(img[iv, :, :, :, ie]), slpos, axis)
                   for img in imgs]
-        diffs = []
-        for ii in range(nI):
-            diffs.append([])
-            for jj in range(ii):
-                diffs[ii].append(slices[ii] - slices[jj])
-
         if not clim:
             clim = (np.inf, -np.inf)
             for sl in slices:
                 temp_lim = np.nanpercentile(sl, (2, 98))
                 clim = [np.amin([clim[0], temp_lim[0]]),
                         np.amax([clim[1], temp_lim[1]])]
+
+        diffs = []
+        for ii in range(nI):
+            diffs.append([])
+            for jj in range(ii):
+                diffs[ii].append((slices[ii] - slices[jj]) * 100 / clim[1])
 
         if not difflim:
             difflim = (np.inf, -np.inf)
