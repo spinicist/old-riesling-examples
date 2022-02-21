@@ -101,7 +101,8 @@ def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(None, None
     with h5py.File(filename) as f:
         data = np.array(f[dset][sl_spoke, sl_read]).T
         fig, ax = plt.subplots(1, 1, figsize=(12, 6), facecolor='w')
-        im = ax.imshow(data, interpolation='nearest')
+        im = ax.imshow(data, interpolation='nearest',
+                       cmap='cmr.ember')
         ax.set_xlabel('Spoke')
         ax.set_ylabel('Readout')
         ax.axis('auto')
