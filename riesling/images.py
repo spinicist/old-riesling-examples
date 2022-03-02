@@ -353,9 +353,8 @@ def diffN(fnames, titles=None, dset='image', axis='z', slpos=None, iv=0, ie=0,
         iz   (int): Slice index for z-axis. Default 2.
         iv   (int): Volume to slice, default 0.
         cmap (str): colormap. Defaults to 'gray'.
-        vmin (float): Lower window limit. Defaults to None.
-        vmax (float): Upper window limit. Defaults to None.
-        diffscale(float): Amount to inflate diffs by
+        clim (float): Image window.
+        difflim (float): Difference window (%)
         comp (str, opt): mag/pha/real/imaginary. Default mag
     """
 
@@ -461,7 +460,7 @@ def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', c
         pos = (int(nx/2), int(ny/2), int(nz/2))
 
     fn = get_comp(comp)
-    img = fn(np.squeeze(I[:, :, :, ie, ic]))
+    img = fn(I[:, :, :, ie, ic])
     if not clim:
         # There are a lot of zeros in typical cartesian grids. Use an expanded range
         clim = np.nanpercentile(img, (0, 100))

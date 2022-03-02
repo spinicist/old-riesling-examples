@@ -63,15 +63,16 @@ def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None)):
     return fig
 
 
-def kspace(filename, dset='noncartesian', title=None, vol=0, coil=0,
+def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
            sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1),
            comp='mag'):
     with h5py.File(filename) as f:
         dsetw = f[dset]
         if dsetw.ndim == 3:
-            data = np.array(f[dset][sl_spoke, sl_read, coil]).squeeze().T
+            data = np.array(f[dset][sl_spoke, sl_read, channel]).squeeze().T
         else:
-            data = np.array(f[dset][vol, sl_spoke, sl_read, coil]).squeeze().T
+            data = np.array(
+                f[dset][vol, sl_spoke, sl_read, channel]).squeeze().T
         dmax = np.max(np.abs(data))
         fig, ax = plt.subplots(2, 1, figsize=(12, 6), facecolor='w')
         if comp == 'mag':
