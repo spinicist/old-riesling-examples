@@ -65,7 +65,7 @@ def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None)):
 
 def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
            sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1),
-           comp='mag'):
+           comp='mag', clim=None):
     with h5py.File(filename) as f:
         dsetw = f[dset]
         if dsetw.ndim == 3:
@@ -73,14 +73,19 @@ def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
         else:
             data = np.array(
                 f[dset][vol, sl_spoke, sl_read, channel]).squeeze().T
-        dmax = np.max(np.abs(data))
         fig, ax = plt.subplots(2, 1, figsize=(12, 6), facecolor='w')
         if comp == 'mag':
-            im0 = ax[0].imshow(np.log(np.abs(data+1E-10)), vmin=np.log(1E-10), vmax=np.log(dmax),
+            if clim is None:
+                dmax = np.max(np.abs(data))
+                clim = (np.log(1E-10), np.log(dmax))
+            im0 = ax[0].imshow(np.log(np.abs(data+1E-10)), vmin=clim[0], vmax=clim[1],
                                interpolation='nearest', cmap='cmr.ember')
             im1 = ax[1].imshow(np.angle(data), interpolation='nearest',
                                cmap='cmr.infinity', vmin=-np.pi, vmax=np.pi)
         else:
+            if clim is None:
+                temp_lim = np.nanpercentile(np.abs(data), (98))
+                clim = (-temp_lim(0), temp_lim(0))
             im0 = ax[0].imshow(np.real(data), interpolation='nearest', cmap='cmr.iceburn',
                                vmin=-dmax, vmax=dmax)
             im1 = ax[1].imshow(np.imag(data), interpolation='nearest', cmap='cmr.iceburn',
