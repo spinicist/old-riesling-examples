@@ -1,0 +1,8 @@
+zinfandel.ipynb filter=lfs diff=lfs merge=lfs -text
+kernels.ipynb filter=lfs diff=lfs merge=lfs -text
+nufft.ipynb filter=lfs diff=lfs merge=lfs -text
+oversamp.ipynb filter=lfs diff=lfs merge=lfs -text
+rrsg-cgsense.ipynb filter=lfs diff=lfs merge=lfs -text
+sdc.ipynb filter=lfs diff=lfs merge=lfs -text
+tikhonov.ipynb filter=lfs diff=lfs merge=lfs -text
+tutorial.ipynb filter=lfs diff=lfs merge=lfs -text
