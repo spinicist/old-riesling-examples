@@ -340,8 +340,10 @@ def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2',
     return fig
 
 
-def diffN(fnames, titles=None, dset='image', axis='z', slpos=None, iv=0, ie=0,
-          comp='mag', cmap='gray', clim=None, difflim=None):
+def diffN(fnames, titles=None, dset='image',
+          axis='z', slpos=None, iv=0, ie=0,
+          comp='mag', cmap='gray', clim=None, difflim=None,
+          figsize=4):
     """Plot the difference between two images
 
     Args:
@@ -406,7 +408,7 @@ def diffN(fnames, titles=None, dset='image', axis='z', slpos=None, iv=0, ie=0,
                 difflim[1] = -difflim[0]
 
         fig, ax = plt.subplots(nI, nI, figsize=(
-            nI*4, nI*4), facecolor='black')
+            nI*figsize, nI*figsize), facecolor='black')
         for ii in range(nI):
             imi = ax[ii, ii].imshow(slices[ii], cmap=cmap,
                                     vmin=clim[0], vmax=clim[1])
