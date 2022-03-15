@@ -61,18 +61,16 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cma
         clim  (float * 2): Window limits. Defaults to (2,98) percentiles
     """
 
-    fn = get_comp(comp)
-
     with h5py.File(file, 'r') as f:
-        dsetw = f[dset]
-        if dsetw.ndim == 4:
-            # Channels only image, e.g. phantom
-            [nz, ny, nx, ne] = dsetw.shape
-            img = fn(dsetw[:, :, :, ie])
+        fn = get_comp(comp)
+        D = f[dset]
+        if D.ndim == 3:
+            img = fn(D)
+        elif D.ndim == 4:
+            img = fn(D[:, :, :, ie])
         else:
-            # Assume 5D
-            [nv, nz, ny, nx, ne] = dsetw.shape
-            img = fn(dsetw[iv, :, :, :, ie])
+            img = fn(D[iv, :, :, :, ie])
+    [nx, ny, nz] = img.shape
 
     if not (pos):
         pos = (int(nz/2), int(ny/2), int(nx/2))
@@ -117,25 +115,32 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
         clim (float, float): Lower/upper window limits
     """
 
-    f = h5py.File(file, 'r')
-    I = f[dset][:]
-    fn = get_comp(comp)
-    img = fn(I[iv, :, :, :, ie])
+
+    with h5py.File(file, 'r') as f:
+        fn = get_comp(comp)
+        D = f[dset]
+        if D.ndim == 3:
+            img = fn(D)
+        elif D.ndim == 4:
+            img = fn(D[:, :, :, ie])
+        else:
+            img = fn(D[iv, :, :, :, ie])
+    [nx, ny, nz] = img.shape
+
     if not clim:
         clim = np.nanpercentile(img, (2, 98))
-    [nz, ny, nx] = np.shape(img)
 
     if axis == 'z':
-        maxn = nz
+        maxn = nz - 1
     elif axis == 'y':
-        maxn = ny
+        maxn = ny - 1
     else:
-        maxn = nx
-    if not start:
-        start = maxn / 4
-    if not stop:
-        end = 3 * maxn / 4
-    slpos = np.floor(np.linspace(start, stop, nslice, endpoint=True))
+        maxn = nx - 1
+    if start is None:
+        start = 0.25
+    if stop is None:
+        stop = 0.75
+    slpos = np.floor(np.linspace(start*maxn, stop*maxn, nslice, endpoint=True)).astype(int)
 
     ncols = int(np.ceil(nslice / nrows))
     fig, all_ax = plt.subplots(nrows, ncols, figsize=(
@@ -143,7 +148,7 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
 
     for ir in range(nrows):
         if nrows > 1:
-            sl_ax = ax[ir, :]
+            sl_ax = all_ax[ir, :]
         else:
             sl_ax = all_ax
         for ic in range(ncols):
@@ -163,7 +168,7 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
 
 
 def series(file, dset='image', title=None, which='echoes', io=0,
-           nrows=1, axis='z', slpos=None,
+           nrows=1, axis='z', slpos=None, figsz=3,
            comp='mag', cmap='gray', clim=None):
     """One slice through echoes or volumes
 
@@ -182,14 +187,25 @@ def series(file, dset='image', title=None, which='echoes', io=0,
     """
 
     f = h5py.File(file, 'r')
-    I = f[dset][:]
-    [nv, nz, ny, nx, ne] = np.shape(I)
-    fn = get_comp(comp)
-    if which == 'echoes':
-        nslice = ne
-        img = fn(I[io, :, :, :, :].transpose((3, 0, 1, 2)))
+    D = f[dset]
 
-    if not slpos:
+    fn = get_comp(comp)
+    if D.ndim == 4:
+        # Channels only image, e.g. phantom
+        [nz, ny, nx, ne] = D.shape
+        nslice = ne
+        img = fn(D).transpose(3, 0, 1, 2)
+    else:
+        # Assume 5D
+        [nv, nz, ny, nx, ne] = D.shape
+        if which == 'echoes':
+            nslice = ne
+            img = fn(D[io, :, :, :, :].transpose((3, 0, 1, 2)))
+        else:
+            nslice = nv
+            img = fn(D[:, :, :, :, io])
+
+    if slpos is None:
         slpos = mid_slice(axis, nx, ny, nz)
 
     if not clim:
@@ -200,7 +216,7 @@ def series(file, dset='image', title=None, which='echoes', io=0,
 
     ncols = int(np.ceil(nslice / nrows))
     fig, all_ax = plt.subplots(nrows, ncols, figsize=(
-        3*ncols, 3*nrows), facecolor='black')
+        figsz*ncols, figsz*nrows), facecolor='black')
 
     for ir in range(nrows):
         if nrows > 1:

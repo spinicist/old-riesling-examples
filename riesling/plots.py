@@ -85,11 +85,11 @@ def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
         else:
             if clim is None:
                 temp_lim = np.nanpercentile(np.abs(data), (98))
-                clim = (-temp_lim(0), temp_lim(0))
+                clim = (-temp_lim, temp_lim)
             im0 = ax[0].imshow(np.real(data), interpolation='nearest', cmap='cmr.iceburn',
-                               vmin=-dmax, vmax=dmax)
+                               vmin=clim[0], vmax=clim[1])
             im1 = ax[1].imshow(np.imag(data), interpolation='nearest', cmap='cmr.iceburn',
-                               vmin=-dmax, vmax=dmax)
+                               vmin=clim[0], vmax=clim[1])
         fig.colorbar(im0, ax=ax[0], location='right')
         fig.colorbar(im1, ax=ax[1], location='right')
         ax[1].set_xlabel('Spoke')
