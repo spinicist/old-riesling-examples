@@ -45,8 +45,44 @@ def get_slice(img, sl, axis):
         data = img[:, :, sl].T
     return data
 
+def add_colorbar(fig, im, ax, clabel, clims,
+             black_backg=True, tick_fmt='{:.4g}', orient='v'):
+    """
+    Plots a colorbar in the specified axes
 
-def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cmap='gray', clim=None):
+    Parameters:
+
+    - axes -- matplotlib axes instance to use for plotting
+    - cm_name -- Colormap name
+    - clims -- The limits for the colormap & bar
+    - clabel -- Label to place on the color axis
+    - black_bg -- Boolean indicating if the background to this plot is black, and hence white text/borders should be used
+    - show_ticks -- Set to false if you don't want ticks on the color axis
+    - tick_fmt -- Valid format string for the tick labels
+    - orient -- 'v' or 'h' for whether you want a vertical or horizontal colorbar
+    """
+    cb = fig.colorbar(im, location='right', ax=ax, aspect=50, pad=0.01, shrink=0.8)
+    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+    if black_backg:
+        forecolor = 'w'
+    else:
+        forecolor = 'k'
+    axes = cb.ax
+
+    ticks = (clims[0], np.sum(clims)/2, clims[1])
+    labels = (tick_fmt.format(clims[0]),
+                clabel, tick_fmt.format(clims[1]))
+    if orient == 'h':
+        cb.set_ticks(ticks)
+        cb.set_ticklabels(labels)
+    else:
+        cb.set_ticks(ticks)
+        cb.set_ticklabels(labels)
+        cb.ax.tick_params(labelrotation='auto')
+
+
+
+def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cbar=True, cmap='gray', clim=None):
     """3 plane plot of 3D image data in an h5 file
 
     Args:
@@ -78,7 +114,7 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cma
         clim = np.nanpercentile(img, (2, 98))
 
     fig, ax = plt.subplots(1, 3, figsize=(
-        16, 6), facecolor='black')
+        18, 6), facecolor='black')
     ax[0].imshow(get_slice(img, pos[2], 'x'),
                  cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[0].axis('image')
@@ -88,17 +124,19 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cma
     im = ax[2].imshow(get_slice(img, pos[0], 'z'),
                       cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[2].axis('image')
-    cb = fig.colorbar(im, location='right', ax=ax[2])
-    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
-    fig.suptitle(title, color='white')
     fig.tight_layout(pad=0)
+    if cbar:
+        cb = fig.colorbar(im, location='right', ax=ax)
+        cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+    fig.suptitle(title, color='white')
+    
     plt.close()
     return fig
 
 
 def slices(file, dset='image', title=None, ie=0, iv=0,
            nslice=4, nrows=1, axis='z', start=None, stop=None,
-           comp='mag', cmap='gray', clim=None):
+           comp='mag', cmap='gray', clim=None, cbar=True, figsz=3):
     """Plot slices along one axis
 
     Args:
@@ -144,7 +182,7 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
 
     ncols = int(np.ceil(nslice / nrows))
     fig, all_ax = plt.subplots(nrows, ncols, figsize=(
-        3*ncols, 3*nrows), facecolor='black')
+        figsz*ncols, figsz*nrows), facecolor='black')
 
     for ir in range(nrows):
         if nrows > 1:
@@ -159,17 +197,19 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
                 im = ax.imshow(data, cmap=cmap,
                                vmin=clim[0], vmax=clim[1])
                 ax.axis('off')
-    cb = fig.colorbar(im, location='right')
-    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
     fig.tight_layout(pad=0)
-    fig.suptitle(title, color='white')
+    if cbar == True:
+        add_colorbar(fig, im, all_ax, title, clim)
+    else:
+        if title is not None:
+            fig.suptitle(title, color='white')
     plt.close()
     return fig
 
 
 def series(file, dset='image', title=None, which='echoes', io=0,
            nrows=1, axis='z', slpos=None, figsz=3,
-           comp='mag', cmap='gray', clim=None):
+           comp='mag', cmap='gray', clim=None, cbar=True):
     """One slice through echoes or volumes
 
     Args:
@@ -186,24 +226,23 @@ def series(file, dset='image', title=None, which='echoes', io=0,
         clim (float, float): Lower/upper window limits
     """
 
-    f = h5py.File(file, 'r')
-    D = f[dset]
-
     fn = get_comp(comp)
-    if D.ndim == 4:
-        # Channels only image, e.g. phantom
-        [nz, ny, nx, ne] = D.shape
-        nslice = ne
-        img = fn(D).transpose(3, 0, 1, 2)
-    else:
-        # Assume 5D
-        [nv, nz, ny, nx, ne] = D.shape
-        if which == 'echoes':
+    with h5py.File(file, 'r') as f:
+        D = f[dset]
+        if D.ndim == 4:
+            # Channels only image, e.g. phantom
+            [nz, ny, nx, ne] = D.shape
             nslice = ne
-            img = fn(D[io, :, :, :, :].transpose((3, 0, 1, 2)))
+            img = fn(D).transpose(3, 0, 1, 2)
         else:
-            nslice = nv
-            img = fn(D[:, :, :, :, io])
+            # Assume 5D
+            [nv, nz, ny, nx, ne] = D.shape
+            if which == 'echoes':
+                nslice = ne
+                img = fn(D[io, :, :, :, :].transpose((3, 0, 1, 2)))
+            else:
+                nslice = nv
+                img = fn(D[:, :, :, :, io])
 
     if slpos is None:
         slpos = mid_slice(axis, nx, ny, nz)
@@ -226,15 +265,19 @@ def series(file, dset='image', title=None, which='echoes', io=0,
         for ic in range(ncols):
             sl = (ir * ncols) + ic
             if sl < nslice:
-                ax = sl_ax[ic]
+                if hasattr(sl_ax, "__len__"):
+                    ax = sl_ax[ic]
+                else:
+                    ax = sl_ax
                 data = get_slice(img[sl, :, :, :], slpos, axis)
                 im = ax.imshow(data, cmap=cmap, vmin=clim[0], vmax=clim[1])
                 ax.axis('off')
     fig.tight_layout(pad=0)
-    cb = fig.colorbar(im, location='right', ax=all_ax)
-    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
-    cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
-    fig.suptitle(title, color='white')
+    if cbar == True:
+        add_colorbar(fig, im, all_ax, title, clim)
+    else:
+        if title is not None:
+            fig.suptitle(title, color='white')
     plt.close()
     return fig
 
