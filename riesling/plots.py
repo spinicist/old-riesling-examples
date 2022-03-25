@@ -27,12 +27,18 @@ def dynamics(path):
     plt.show()
 
 
-def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None)):
+def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None):
     with h5py.File(filename) as f:
         traj = np.array(f['trajectory'])
         fig, ax = plt.subplots(1, 3, figsize=(12, 4), facecolor='w')
-        c = np.tile(np.arange(len(traj[0, sl_read, 0])), len(
-            traj[sl_spoke, 0, 0]))
+        if color == 'read':
+            c = np.tile(np.arange(len(traj[0, sl_read, 0])), len(traj[sl_spoke, 0, 0]))
+        elif color == 'seg':
+            c = np.tile(np.repeat(np.arange(sps),
+                                  len(traj[0, sl_read, 0])),
+                        int(len(traj[sl_spoke, 0, 0])/sps))
+        else:
+            c = np.tile(np.arange(len(traj[sl_spoke, 0, 0])), len(traj[0, sl_read, 0]))
         ax[0].grid()
         ax[0].scatter(traj[sl_spoke, sl_read, 0],
                       traj[sl_spoke, sl_read, 1], c=c, s=0.5)
@@ -50,14 +56,23 @@ def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None)):
     return fig
 
 
-def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None)):
+def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None):
     with h5py.File(filename) as ff:
         traj = np.array(ff['trajectory'])
-        fig = plt.figure()
+        if color == 'read':
+            c = np.tile(np.arange(len(traj[0, sl_read, 0])), len(traj[sl_spoke, 0, 0]))
+        elif color == 'seg':
+            c = np.tile(np.repeat(np.arange(sps),
+                                  len(traj[0, sl_read, 0])),
+                        int(len(traj[sl_spoke, 0, 0])/sps))
+        else:
+            c = np.tile(np.arange(len(traj[sl_spoke, 0, 0])), len(traj[0, sl_read, 0]))
+        fig = plt.figure(figsize=(12,12))
         ax = fig.add_subplot(projection='3d')
         ax.scatter(traj[sl_spoke, sl_read, 0],
                    traj[sl_spoke, sl_read, 1],
-                   traj[sl_spoke, sl_read, 2])
+                   traj[sl_spoke, sl_read, 2],
+                   c=c, s=3)
         fig.tight_layout()
         plt.close()
     return fig
