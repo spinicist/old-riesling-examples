@@ -25,6 +25,16 @@ def get_comp(component):
         warnings.warn('Unknown component, taking real')
     return fn
 
+def get_img(f, ie, iv, comp, dset):
+    fn = get_comp(comp)
+    D = f[dset]
+    if D.ndim == 3:
+        img = fn(D)
+    elif D.ndim == 4:
+        img = fn(D[:, :, :, ie])
+    else:
+        img = fn(D[iv, :, :, :, ie])
+    return img
 
 def mid_slice(axis, nx, ny, nz):
     if axis == 'z':
@@ -44,6 +54,13 @@ def get_slice(img, sl, axis):
     else:
         data = img[:, :, sl].T
     return data
+
+def sym_lim(img):
+    lim = np.nanpercentile(img, (2, 98))
+    if lim[0] < 0:
+        lim[1] = np.amax([np.abs(lim[0]), np.abs(lim[1])])
+        lim[0] = -lim[1]
+    return lim
 
 def add_colorbar(fig, im, ax, clabel, clims,
              black_backg=True, tick_fmt='{:.4g}', orient='v'):
@@ -82,7 +99,8 @@ def add_colorbar(fig, im, ax, clabel, clims,
 
 
 
-def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cbar=True, cmap='gray', clim=None):
+def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, figsize=5,
+           comp='mag', cbar=True, cmap='gray', clim=None):
     """3 plane plot of 3D image data in an h5 file
 
     Args:
@@ -98,23 +116,15 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cba
     """
 
     with h5py.File(file, 'r') as f:
-        fn = get_comp(comp)
-        D = f[dset]
-        if D.ndim == 3:
-            img = fn(D)
-        elif D.ndim == 4:
-            img = fn(D[:, :, :, ie])
-        else:
-            img = fn(D[iv, :, :, :, ie])
+        img = get_img(f, ie, iv, comp, dset)
     [nx, ny, nz] = img.shape
 
     if not (pos):
         pos = (int(nz/2), int(ny/2), int(nx/2))
     if not clim:
-        clim = np.nanpercentile(img, (2, 98))
+        clim = sym_lim(img)
 
-    fig, ax = plt.subplots(1, 3, figsize=(
-        18, 6), facecolor='black')
+    fig, ax = plt.subplots(1, 3, figsize=(figsize*3, figsize), facecolor='black')
     ax[0].imshow(get_slice(img, pos[2], 'x'),
                  cmap=cmap, vmin=clim[0], vmax=clim[1])
     ax[0].axis('image')
@@ -136,7 +146,7 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, comp='mag', cba
 
 def slices(file, dset='image', title=None, ie=0, iv=0,
            nslice=4, nrows=1, axis='z', start=None, stop=None,
-           comp='mag', cmap='gray', clim=None, cbar=True, figsz=3):
+           comp='mag', cmap='gray', clim=None, cbar=True, figsize=3):
     """Plot slices along one axis
 
     Args:
@@ -155,14 +165,7 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
 
 
     with h5py.File(file, 'r') as f:
-        fn = get_comp(comp)
-        D = f[dset]
-        if D.ndim == 3:
-            img = fn(D)
-        elif D.ndim == 4:
-            img = fn(D[:, :, :, ie])
-        else:
-            img = fn(D[iv, :, :, :, ie])
+        img = get_img(f, ie, iv, comp, dset)
     [nx, ny, nz] = img.shape
 
     if not clim:
@@ -182,7 +185,7 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
 
     ncols = int(np.ceil(nslice / nrows))
     fig, all_ax = plt.subplots(nrows, ncols, figsize=(
-        figsz*ncols, figsz*nrows), facecolor='black')
+        figsize*ncols, figsize*nrows), facecolor='black')
 
     for ir in range(nrows):
         if nrows > 1:
@@ -208,7 +211,7 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
 
 
 def series(file, dset='image', title=None, which='echoes', io=0,
-           nrows=1, axis='z', slpos=None, figsz=3,
+           nrows=1, axis='z', slpos=None, figsize=3,
            comp='mag', cmap='gray', clim=None, cbar=True):
     """One slice through echoes or volumes
 
@@ -255,7 +258,7 @@ def series(file, dset='image', title=None, which='echoes', io=0,
 
     ncols = int(np.ceil(nslice / nrows))
     fig, all_ax = plt.subplots(nrows, ncols, figsize=(
-        figsz*ncols, figsz*nrows), facecolor='black')
+        figsize*ncols, figsize*nrows), facecolor='black')
 
     for ir in range(nrows):
         if nrows > 1:
@@ -331,79 +334,11 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
     return fig
 
 
-def diff(file1, file2, dset='image', title1='Image 1', title2='Image 2',
-         axis='z', slpos=None, iv=0, ie=0, comp='mag',
-         cmap='gray', clim=None,
-         diffscale=1, difflim=None):
-    """Plot the difference between two images
-
-    Args:
-        file1 (str): Path to first .h5 file
-        file2 (str): Path to second .h5 file
-        dset (str): Dataset within h5 file to plot. Default "image"
-        title (str): Plot title. Defaults to ''.
-        sli  (int): Slice axis (0='x',1='y',2='z')
-        iz   (int): Slice index for z-axis. Default 2.
-        iv   (int): Volume to slice, default 0.
-        cmap (str): colormap. Defaults to 'gray'.
-        vmin (float): Lower window limit. Defaults to None.
-        vmax (float): Upper window limit. Defaults to None.
-        diffscale(float): Amount to inflate diffs by
-        comp (str, opt): mag/pha/real/imaginary. Default mag
-    """
-
-    f1 = h5py.File(file1, 'r')
-    f2 = h5py.File(file2, 'r')
-    I1 = f1[dset][:]
-    I2 = f2[dset][:]
-
-    if (np.shape(I1) != np.shape(I2)):
-        warnings.warn('Image dimensions did not match')
-        return
-
-    [nv, nz, ny, nx, ne] = np.shape(I1)
-    if not slpos:
-        slpos = mid_slice(axis, nx, ny, nz)
-
-    fn = get_comp(comp)
-    img1 = fn(I1[iv, :, :, :, ie])
-    img2 = fn(I2[iv, :, :, :, ie])
-
-    if not clim:
-        clim1 = np.nanpercentile(img1, (2, 98))
-        clim2 = np.nanpercentile(img2, (2, 98))
-        clim = (np.amin((clim1[0], clim2[0])), np.amax((clim1[1], clim2[1])))
-    diff = diffscale * (img2 - img1)
-    if not difflim:
-        difflim = np.nanpercentile(np.abs(diff), (2, 98))
-        difflim = (-difflim[1], difflim[1])
-
-    fig, ax = plt.subplots(1, 3, figsize=(16, 6), facecolor='black')
-    ax[0].imshow(get_slice(img1, slpos, axis),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
-    ax[0].axis('off')
-    ax[0].set_title(title1, color='white')
-    ax[1].imshow(get_slice(img2, slpos, axis),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
-    ax[1].axis('off')
-    ax[1].set_title(title2, color='white')
-    diffim = ax[2].imshow(get_slice(diff, slpos, axis),
-                          cmap='cmr.iceburn', vmin=difflim[0], vmax=difflim[1])
-    ax[2].axis('off')
-    ax[2].set_title(f'Diff x{diffscale}', color='white')
-    cb = fig.colorbar(diffim, ax=ax[2], location='right')
-    cb.ax.xaxis.set_tick_params(color='w', labelcolor='w')
-    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
-    fig.tight_layout(pad=0)
-    plt.close()
-    return fig
-
-
-def diffN(fnames, titles=None, dset='image',
-          axis='z', slpos=None, iv=0, ie=0,
-          comp='mag', cmap='gray', clim=None, difflim=None,
-          figsize=4):
-    """Plot the difference between two images
+def diff(fnames, titles=None, dset='image',
+         axis='z', slpos=None, iv=0, ie=0,
+         comp='mag', cmap='gray', clim=None, difflim=None,
+         figsize=4):
+    """Plot the difference between images
 
     Args:
         fnames (str): Paths to .h5 files
@@ -421,7 +356,8 @@ def diffN(fnames, titles=None, dset='image',
 
     with contextlib.ExitStack() as stack:
         files = [stack.enter_context(h5py.File(fn, 'r')) for fn in fnames]
-        imgs = [f[dset][:] for f in files]
+        imgs = [get_img(f, ie, iv, comp, dset) for f in files]
+
         nI = len(imgs)
 
         if titles is not None:
@@ -435,19 +371,21 @@ def diffN(fnames, titles=None, dset='image',
                     warnings.warn('Image dimensions did not match')
                     return
 
-        [nv, nz, ny, nx, ne] = np.shape(imgs[0])
+        [nz, ny, nx] = np.shape(imgs[0])
         if not slpos:
             slpos = mid_slice(axis, nx, ny, nz)
 
         fn = get_comp(comp)
-        slices = [get_slice(fn(img[iv, :, :, :, ie]), slpos, axis)
-                  for img in imgs]
+        slices = [get_slice(img, slpos, axis) for img in imgs]
         if not clim:
             clim = (np.inf, -np.inf)
             for sl in slices:
                 temp_lim = np.nanpercentile(sl, (2, 98))
                 clim = [np.amin([clim[0], temp_lim[0]]),
                         np.amax([clim[1], temp_lim[1]])]
+            if clim[0] < 0:
+                clim[1] = np.amax([np.abs(clim[0]), np.abs(clim[1])])
+                clim[0] = -clim[1]
 
         diffs = []
         for ii in range(nI):
@@ -463,8 +401,8 @@ def diffN(fnames, titles=None, dset='image',
                     difflim = [np.amin([difflim[0], templim[0]]), np.amax(
                         [difflim[1], templim[1]])]
             if difflim[0] < 0:
-                difflim[0] = np.amin([difflim[0], -difflim[1]])
-                difflim[1] = -difflim[0]
+                difflim[1] = np.amax([np.abs(difflim[0]), np.abs(difflim[1])])
+                difflim[0] = -difflim[1]
 
         fig, ax = plt.subplots(nI, nI, figsize=(
             nI*figsize, nI*figsize), facecolor='black')
