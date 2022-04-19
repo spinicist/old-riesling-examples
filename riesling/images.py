@@ -79,7 +79,6 @@ def add_colorbar(fig, im, ax, clabel, clims,
     - orient -- 'v' or 'h' for whether you want a vertical or horizontal colorbar
     """
     cb = fig.colorbar(im, location='right', ax=ax, aspect=50, pad=0.01, shrink=0.8)
-    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
     if black_backg:
         forecolor = 'w'
     else:
@@ -87,15 +86,17 @@ def add_colorbar(fig, im, ax, clabel, clims,
     axes = cb.ax
 
     ticks = (clims[0], np.sum(clims)/2, clims[1])
-    labels = (tick_fmt.format(clims[0]),
-                clabel, tick_fmt.format(clims[1]))
+    labels = (tick_fmt.format(clims[0]), clabel, tick_fmt.format(clims[1]))
+    cb.set_ticks(ticks)
+    cb.set_ticklabels(labels)
     if orient == 'h':
-        cb.set_ticks(ticks)
-        cb.set_ticklabels(labels)
+        rot=0
     else:
-        cb.set_ticks(ticks)
-        cb.set_ticklabels(labels)
-        cb.ax.tick_params(labelrotation='auto')
+        rot=90
+        cb.ax.get_yticklabels()[0].set_va('bottom')
+        cb.ax.get_yticklabels()[1].set_va('center')
+        cb.ax.get_yticklabels()[2].set_va('top')
+    cb.ax.tick_params(labelrotation=rot, color='w', labelcolor='w')
 
 
 
@@ -334,9 +335,10 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
     return fig
 
 
-def diff(fnames, titles=None, dset='image',
+def diff(fnames, titles=None, dsets=['image'],
          axis='z', slpos=None, iv=0, ie=0,
-         comp='mag', cmap='gray', clim=None, difflim=None,
+         comp='mag', clim=None, cmap='gray',
+         difflim=None, diffmap='cmr.iceburn',
          figsize=4):
     """Plot the difference between images
 
@@ -354,9 +356,17 @@ def diff(fnames, titles=None, dset='image',
         comp (str, opt): mag/pha/real/imaginary. Default mag
     """
 
+    if len(dsets) == 1:
+        dsets = dsets * len(fnames)
+
+    try:
+        iterator = iter(ie)
+    except:
+        ie = [ie] * len(fnames)
+
     with contextlib.ExitStack() as stack:
         files = [stack.enter_context(h5py.File(fn, 'r')) for fn in fnames]
-        imgs = [get_img(f, ie, iv, comp, dset) for f in files]
+        imgs = [get_img(f, ii, iv, comp, ds) for f, ds, ii in zip(files, dsets, ie)]
 
         nI = len(imgs)
 
@@ -414,7 +424,7 @@ def diff(fnames, titles=None, dset='image',
                 ax[ii, ii].text(0.5, 0.9, titles[ii], color='white',
                                 transform=ax[ii, ii].transAxes, ha='center')
             for jj in range(ii):
-                imd = ax[jj, ii].imshow(diffs[ii][jj], cmap='cmr.iceburn',
+                imd = ax[jj, ii].imshow(diffs[ii][jj], cmap=diffmap,
                                         vmin=difflim[0], vmax=difflim[1])
                 ax[jj, ii].axis('off')
             for jj in range(ii, nI):
