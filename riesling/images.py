@@ -25,15 +25,17 @@ def get_comp(component):
         warnings.warn('Unknown component, taking real')
     return fn
 
-def get_img(f, ie, iv, comp, dset):
+def get_img(f, ifr, iv, ic, comp, dset):
     fn = get_comp(comp)
     D = f[dset]
     if D.ndim == 3:
         img = fn(D)
     elif D.ndim == 4:
-        img = fn(D[:, :, :, ie])
-    else:
-        img = fn(D[iv, :, :, :, ie])
+        img = fn(D[:, :, :, ifr])
+    elif D.ndim == 5:
+        img = fn(D[iv, :, :, :, ifr])
+    elif D.ndim == 6:
+        img = fn(D[iv, :, :, :, ifr, ic])
     return img
 
 def mid_slice(axis, nx, ny, nz):
@@ -100,7 +102,7 @@ def add_colorbar(fig, im, ax, clabel, clims,
 
 
 
-def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, figsize=5,
+def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=5,
            comp='mag', cbar=True, cmap='gray', clim=None):
     """3 plane plot of 3D image data in an h5 file
 
@@ -110,14 +112,14 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, figsize=5,
         title (str): Plot title. Defaults to ''
         pos   (int * 3): Slice indices
         iv    (int): Volume index
-        ie    (int): Echo/basis index
+        ifr    (int): Echo/basis index
         comp  (str): mag/pha/real/imaginary. Default mag
         cmap  (str): colormap. Defaults to 'gray'
         clim  (float * 2): Window limits. Defaults to (2,98) percentiles
     """
 
     with h5py.File(file, 'r') as f:
-        img = get_img(f, ie, iv, comp, dset)
+        img = get_img(f, ifr, iv, ic, comp, dset)
     [nx, ny, nz] = img.shape
 
     if not (pos):
@@ -145,7 +147,7 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, figsize=5,
     return fig
 
 
-def slices(file, dset='image', title=None, ie=0, iv=0,
+def slices(file, dset='image', title=None, ifr=0, iv=0, ic=0,
            nslice=4, nrows=1, axis='z', start=None, stop=None,
            comp='mag', cmap='gray', clim=None, cbar=True, figsize=3):
     """Plot slices along one axis
@@ -157,16 +159,14 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
         nslice (int): Number of slices
         nrows (int): Number of rows to plot slices over
         axis (str) : 'x' 'y' or 'z'
-        ie   (int): Echo index, default 0
+        ifr   (int): Echo index, default 0
         iv   (int): Volume to slice, default 0
         comp (str, opt): mag/pha/real/imaginary. Default mag
         cmap (str): colormap. Defaults to 'gray'.
         clim (float, float): Lower/upper window limits
     """
-
-
     with h5py.File(file, 'r') as f:
-        img = get_img(f, ie, iv, comp, dset)
+        img = get_img(f, ifr, iv, ic, comp, dset)
     [nx, ny, nz] = img.shape
 
     if not clim:
@@ -190,13 +190,19 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
 
     for ir in range(nrows):
         if nrows > 1:
-            sl_ax = all_ax[ir, :]
+            if ncols > 1:
+                sl_ax = all_ax[ir, :]
+            else:
+                sl_ax = all_ax[ir]
         else:
             sl_ax = all_ax
         for ic in range(ncols):
             sl = (ir * ncols) + ic
             if sl < nslice:
-                ax = sl_ax[ic]
+                if ncols > 1:
+                    ax = sl_ax[ic]
+                else:
+                    ax = sl_ax
                 data = get_slice(img, slpos[sl], axis)
                 im = ax.imshow(data, cmap=cmap,
                                vmin=clim[0], vmax=clim[1])
@@ -211,17 +217,18 @@ def slices(file, dset='image', title=None, ie=0, iv=0,
     return fig
 
 
-def series(file, dset='image', title=None, which='echoes', io=0,
+def series(file, dset='image', title=None, ifr=None, iv=None, ic=None,
            nrows=1, axis='z', slpos=None, figsize=3,
-           comp='mag', cmap='gray', clim=None, cbar=True):
+           comp='mag', cmap='gray', clim=None, cbar=True, bodge=False):
     """One slice through echoes or volumes
 
     Args:
         file (str): .h5 file to load
         dset (str): Dataset within the .h5 file (default 'image')
         title (str): Plot title. Defaults to ''
-        which (str): 'echoes' or 'vols'
-        io (int): Index into 'other' dim (echoes/vols)
+        ifr (int): Index into frames dim
+        iv (int): Inde into volumes dim
+        ic (int): Index into channel dim
         nrows (int): Number of rows to plot slices over
         axis (str) : 'x' 'y' or 'z'
         slpos (int): Which slice
@@ -235,18 +242,38 @@ def series(file, dset='image', title=None, which='echoes', io=0,
         D = f[dset]
         if D.ndim == 4:
             # Channels only image, e.g. phantom
-            [nz, ny, nx, ne] = D.shape
-            nslice = ne
+            [nz, ny, nx, nc] = D.shape
+            nslice = nc
             img = fn(D).transpose(3, 0, 1, 2)
-        else:
-            # Assume 5D
-            [nv, nz, ny, nx, ne] = D.shape
-            if which == 'echoes':
-                nslice = ne
-                img = fn(D[io, :, :, :, :].transpose((3, 0, 1, 2)))
+        elif D.ndim == 5:
+            if bodge:
+                [nz, ny, nx, nfr, nc] = D.shape
+                nslice = nc
+                img = fn(D[:, :, :, ifr, :].transpose((3, 0, 1, 2)))
             else:
+                [nv, nz, ny, nx, nfr] = D.shape
+                if iv is not None:
+                    nslice = nfr
+                    img = fn(D[iv, :, :, :, :].transpose((3, 0, 1, 2)))
+                elif ifr is not None:
+                    nslice = nv
+                    img = fn(D[:, :, :, :, ifr])
+                else:
+                    raise Exception('Either ifr or iv must be specified')
+        else:
+            # Assume 6D
+            [nv, nz, ny, nx, nfr, nc] = D.shape
+            if iv is not None and ic is not None:
+                nslice = nfr
+                img = fn(D[iv, :, :, :, :, ic].transpose((3, 0, 1, 2)))
+            elif iv is not None and ifr is not None:
+                nslice = nc
+                img = fn(D[iv, :, :, :, ifr, :].transpose((3, 0, 1, 2)))
+            elif ifr is not None and ic is not None:
                 nslice = nv
-                img = fn(D[:, :, :, :, io])
+                img = fn(D[:, :, :, :, ifr, ic])
+            else:
+                raise Exception('A pair of ifr/ic/iv must be specified')
 
     if slpos is None:
         slpos = mid_slice(axis, nx, ny, nz)
@@ -336,7 +363,7 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
 
 
 def diff(fnames, titles=None, dsets=['image'],
-         axis='z', slpos=None, iv=0, ie=0,
+         axis='z', slpos=None, iv=0, ifr=0, ic=0,
          comp='mag', clim=None, cmap='gray',
          difflim=None, diffmap='cmr.iceburn',
          figsize=4):
@@ -360,13 +387,13 @@ def diff(fnames, titles=None, dsets=['image'],
         dsets = dsets * len(fnames)
 
     try:
-        iterator = iter(ie)
+        iterator = iter(ifr)
     except:
-        ie = [ie] * len(fnames)
+        ifr = [ifr] * len(fnames)
 
     with contextlib.ExitStack() as stack:
         files = [stack.enter_context(h5py.File(fn, 'r')) for fn in fnames]
-        imgs = [get_img(f, ii, iv, comp, ds) for f, ds, ii in zip(files, dsets, ie)]
+        imgs = [get_img(f, ii, iv, ic, comp, ds) for f, ds, ii in zip(files, dsets, ifr)]
 
         nI = len(imgs)
 
@@ -446,7 +473,7 @@ def diff(fnames, titles=None, dsets=['image'],
         return fig
 
 
-def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', cmap='cmr.ember', clim=None):
+def grid(file, dset='cartesian', title=None, pos=None, ic=0, ifr=0, comp='log', cmap='cmr.ember', clim=None):
     """3 plane plot of 3D image data in an h5 file
 
     Args:
@@ -455,7 +482,7 @@ def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', c
         title (str): Plot title. Defaults to ''
         pos   (int * 3): Slice indices
         iv    (int): Volume index
-        ie    (int): Echo/basis index
+        ifr    (int): Echo/basis index
         comp  (str): mag/pha/real/imaginary. Default mag
         cmap  (str): colormap. Defaults to 'gray'
         clim  (float * 2): Window limits. Defaults to (2,98) percentiles
@@ -469,7 +496,7 @@ def grid(file, dset='cartesian', title=None, pos=None, ic=0, ie=0, comp='log', c
         pos = (int(nx/2), int(ny/2), int(nz/2))
 
     fn = get_comp(comp)
-    img = fn(I[:, :, :, ie, ic])
+    img = fn(I[:, :, :, ifr, ic])
     if not clim:
         # There are a lot of zeros in typical cartesian grids. Use an expanded range
         clim = np.nanpercentile(img, (0, 100))

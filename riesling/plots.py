@@ -8,9 +8,10 @@ import warnings
 plt.rcParams['font.size'] = 20
 
 
-def basis(path):
+def basis(path, sl_spoke=slice(None),b=slice(None)):
     f = h5py.File(path, 'r')
-    basis = f['basis'][:]
+    basis = f['basis'][b,sl_spoke]
+    print(basis.shape)
     f.close()
     fig, ax = plt.subplots(figsize=(16, 6))
     ax.plot(basis.T)
