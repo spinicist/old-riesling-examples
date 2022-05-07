@@ -8,21 +8,14 @@ import contextlib
 plt.rcParams['font.size'] = 20
 from .util import *
 
-def get_img(f, ifr, iv, ic, comp, dset):
+def get_grid(f, ifr, ic, comp, dset):
     fn = get_comp(comp)
     D = f[dset]
-    if D.ndim == 3:
-        img = fn(D)
-    elif D.ndim == 4:
-        img = fn(D[:, :, :, ifr])
-    elif D.ndim == 5:
-        img = fn(D[iv, :, :, :, ifr])
-    elif D.ndim == 6:
-        img = fn(D[iv, :, :, :, ifr, ic])
-    return img
+    grid = fn(D[:, :, :, ifr, ic])
+    return grid
 
-def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=5,
-           comp='mag', cbar=True, cmap='gray', clim=None):
+def planes(file, dset='cartesian', title=None, pos=None, ifr=0, ic=0, figsize=5,
+           comp='log', cbar=True, cmap='cmr.amber', clim=None):
     """3 plane plot of 3D image data in an h5 file
 
     Args:
@@ -38,7 +31,7 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=
     """
 
     with h5py.File(file, 'r') as f:
-        img = get_img(f, ifr, iv, ic, comp, dset)
+        img = get_grid(f, ifr, ic, comp, dset)
     [nx, ny, nz] = img.shape
 
     if not (pos):
@@ -66,9 +59,9 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=
     return fig
 
 
-def slices(file, dset='image', title=None, ifr=0, iv=0, ic=0,
+def slices(file, dset='cartesian', title=None, ifr=0, ic=0,
            nslice=4, nrows=1, axis='z', start=None, stop=None,
-           comp='mag', cmap='gray', clim=None, cbar=True, figsize=3):
+           comp='log', cmap='cmr.amber', clim=None, cbar=True, figsize=3):
     """Plot slices along one axis
 
     Args:
@@ -85,7 +78,7 @@ def slices(file, dset='image', title=None, ifr=0, iv=0, ic=0,
         clim (float, float): Lower/upper window limits
     """
     with h5py.File(file, 'r') as f:
-        img = get_img(f, ifr, iv, ic, comp, dset)
+        img = get_grid(f, ifr, ic, comp, dset)
     [nx, ny, nz] = img.shape
 
     if not clim:
@@ -135,153 +128,12 @@ def slices(file, dset='image', title=None, ifr=0, iv=0, ic=0,
     plt.close()
     return fig
 
-
-def series(file, dset='image', title=None, ifr=None, iv=None, ic=None,
-           nrows=1, axis='z', slpos=None, figsize=3,
-           comp='mag', cmap='gray', clim=None, cbar=True):
-    """One slice through echoes or volumes
-
-    Args:
-        file (str): .h5 file to load
-        dset (str): Dataset within the .h5 file (default 'image')
-        title (str): Plot title. Defaults to ''
-        ifr (int): Index into frames dim
-        iv (int): Inde into volumes dim
-        ic (int): Index into channel dim
-        nrows (int): Number of rows to plot slices over
-        axis (str) : 'x' 'y' or 'z'
-        slpos (int): Which slice
-        comp (str, opt): mag/pha/real/imaginary. Default mag
-        cmap (str): colormap. Defaults to 'gray'.
-        clim (float, float): Lower/upper window limits
-    """
-
-    fn = get_comp(comp)
-    with h5py.File(file, 'r') as f:
-        D = f[dset]
-        if D.ndim == 4:
-            # Channels only image, e.g. phantom
-            [nz, ny, nx, nc] = D.shape
-            nslice = nc
-            img = fn(D).transpose(3, 0, 1, 2)
-        elif D.ndim == 5:
-            [nv, nz, ny, nx, nfr] = D.shape
-            if iv is not None:
-                nslice = nfr
-                img = fn(D[iv, :, :, :, :].transpose((3, 0, 1, 2)))
-            elif ifr is not None:
-                nslice = nv
-                img = fn(D[:, :, :, :, ifr])
-            else:
-                raise Exception('Either ifr or iv must be specified')
-        else:
-            # Assume 6D
-            [nv, nz, ny, nx, nfr, nc] = D.shape
-            if iv is not None and ic is not None:
-                nslice = nfr
-                img = fn(D[iv, :, :, :, :, ic].transpose((3, 0, 1, 2)))
-            elif iv is not None and ifr is not None:
-                nslice = nc
-                img = fn(D[iv, :, :, :, ifr, :].transpose((3, 0, 1, 2)))
-            elif ifr is not None and ic is not None:
-                nslice = nv
-                img = fn(D[:, :, :, :, ifr, ic])
-            else:
-                raise Exception('A pair of ifr/ic/iv must be specified')
-
-    if slpos is None:
-        slpos = mid_slice(axis, nx, ny, nz)
-
-    if not clim:
-        clim = np.nanpercentile(img, (2, 98))
-        if clim[0] < 0:
-            clim[1] = np.max(np.abs(clim))
-            clim[0] = -clim[1]
-
-    ncols = int(np.ceil(nslice / nrows))
-    fig, all_ax = plt.subplots(nrows, ncols, figsize=(
-        figsize*ncols, figsize*nrows), facecolor='black')
-
-    for ir in range(nrows):
-        if nrows > 1:
-            sl_ax = all_ax[ir, :]
-        else:
-            sl_ax = all_ax
-        for ic in range(ncols):
-            sl = (ir * ncols) + ic
-            if sl < nslice:
-                if hasattr(sl_ax, "__len__"):
-                    ax = sl_ax[ic]
-                else:
-                    ax = sl_ax
-                data = get_slice(img[sl, :, :, :], slpos, axis)
-                im = ax.imshow(data, cmap=cmap, interpolation='gaussian', vmin=clim[0], vmax=clim[1])
-                ax.axis('off')
-    fig.tight_layout(pad=0)
-    if cbar == True:
-        add_colorbar(fig, im, all_ax, title, clim)
-    else:
-        if title is not None:
-            fig.suptitle(title, color='white')
-    plt.close()
-    return fig
-
-
-def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
-    """Plot a slice through each channel of a SENSE dataset
-
-    Args:
-        file (str): .h5 file to load
-        dset (str): Dataset within the .h5 file (default 'sense')
-        title (str): Plot title. Defaults to ''.
-    """
-
-    f = h5py.File(file, 'r')
-    I = f[dset][:]
-
-    [nz, ny, nx, nc] = np.shape(I)
-    if not slpos:
-        slpos = mid_slice(axis, nx, ny, nz)
-
-    ncols = int(np.ceil(nc / nrows))
-
-    fig, ax = plt.subplots(nrows, ncols, figsize=(
-        3*ncols, 3*nrows), facecolor='black')
-
-    norm = colors.Normalize(vmin=-np.pi, vmax=np.pi)
-    smap = cm.ScalarMappable(norm=norm, cmap='cmr.infinity')
-
-    pha = np.angle(I)
-    mag = np.abs(I)
-    lims = np.nanpercentile(mag, (2, 98))
-    mag = np.clip((mag - lims[0]) / (lims[1] - lims[0]), 0, 1)
-
-    for ic in range(nc):
-        pha_slice = get_slice(pha[:, :, :, ic], slpos, axis)
-        mag_slice = get_slice(mag[:, :, :, ic], slpos, axis)
-        colorized = smap.to_rgba(pha_slice, alpha=1., bytes=False)[:, :, 0:3]
-        colorized = colorized * mag_slice[:, :, None]
-        if nrows == 1:
-            if nc > 1:
-                this_ax = ax[ic]
-            else:
-                this_ax = ax
-        else:
-            this_ax = ax[int(np.floor(ic / ncols)), ic % ncols]
-        this_ax.imshow(colorized)
-        this_ax.axis('off')
-    fig.suptitle(title, color='white')
-    fig.tight_layout(pad=0)
-    plt.close()
-    return fig
-
-
-def diff(fnames, titles=None, dsets=['image'],
-         axis='z', slpos=None, iv=0, ifr=0, ic=0,
-         comp='mag', clim=None, cmap='gray',
+def diff(fnames, titles=None, dsets=['cartesian'],
+         axis='z', slpos=None, ifr=0, ic=0,
+         comp='log', clim=None, cmap='cmr.amber',
          difflim=None, diffmap='cmr.iceburn',
          figsize=4):
-    """Plot the difference between images
+    """Plot the difference between grids
 
     Args:
         fnames (str): Paths to .h5 files
@@ -307,7 +159,7 @@ def diff(fnames, titles=None, dsets=['image'],
 
     with contextlib.ExitStack() as stack:
         files = [stack.enter_context(h5py.File(fn, 'r')) for fn in fnames]
-        imgs = [get_img(f, ii, iv, ic, comp, ds) for f, ds, ii in zip(files, dsets, ifr)]
+        imgs = [get_grid(f, ifr, ic, comp, ds) for f, ds in zip(files, dsets)]
 
         nI = len(imgs)
 
@@ -358,14 +210,14 @@ def diff(fnames, titles=None, dsets=['image'],
         fig, ax = plt.subplots(nI, nI, figsize=(
             nI*figsize, nI*figsize), facecolor='black')
         for ii in range(nI):
-            imi = ax[ii, ii].imshow(slices[ii], cmap=cmap, interpolation='gaussian',
+            imi = ax[ii, ii].imshow(slices[ii], cmap=cmap,
                                     vmin=clim[0], vmax=clim[1])
             ax[ii, ii].axis('off')
             if titles is not None:
                 ax[ii, ii].text(0.5, 0.9, titles[ii], color='white',
                                 transform=ax[ii, ii].transAxes, ha='center')
             for jj in range(ii):
-                imd = ax[jj, ii].imshow(diffs[ii][jj], cmap=diffmap, interpolation='gaussian',
+                imd = ax[jj, ii].imshow(diffs[ii][jj], cmap=diffmap,
                                         vmin=difflim[0], vmax=difflim[1])
                 ax[jj, ii].axis('off')
             for jj in range(ii, nI):
