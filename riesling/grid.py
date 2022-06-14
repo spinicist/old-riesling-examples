@@ -32,7 +32,7 @@ def planes(file, dset='cartesian', title=None, pos=None, ifr=0, ic=0, figsize=5,
 
     with h5py.File(file, 'r') as f:
         img = get_grid(f, ifr, ic, comp, dset)
-    [nx, ny, nz] = img.shape
+    [nz, ny, nx] = img.shape
 
     if not (pos):
         pos = (int(nz/2), int(ny/2), int(nx/2))
@@ -79,7 +79,7 @@ def slices(file, dset='cartesian', title=None, ifr=0, ic=0,
     """
     with h5py.File(file, 'r') as f:
         img = get_grid(f, ifr, ic, comp, dset)
-    [nx, ny, nz] = img.shape
+    [nz, ny, nx] = img.shape
 
     if not clim:
         clim = np.nanpercentile(img, (2, 98))
