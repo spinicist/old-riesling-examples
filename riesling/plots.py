@@ -39,19 +39,21 @@ def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sp
                                   len(traj[0, sl_read, 0])),
                         int(len(traj[sl_spoke, 0, 0])/sps))
         else:
-            c = np.tile(np.arange(len(traj[sl_spoke, 0, 0])), len(traj[0, sl_read, 0]))
+            c = np.tile(np.arange(len(traj[sl_spoke, 0, 0])), (len(traj[0, sl_read, 0]), 1)).ravel(order='F')
         ax[0].grid()
         ax[0].scatter(traj[sl_spoke, sl_read, 0],
                       traj[sl_spoke, sl_read, 1], c=c, s=0.5)
-        ax[0].set_aspect('equal')
         ax[1].grid()
         ax[1].scatter(traj[sl_spoke, sl_read, 0],
                       traj[sl_spoke, sl_read, 2], c=c, s=0.5)
-        ax[1].set_aspect('equal')
         ax[2].grid()
         ax[2].scatter(traj[sl_spoke, sl_read, 1],
                       traj[sl_spoke, sl_read, 2], c=c, s=0.5)
-        ax[2].set_aspect('equal')
+
+        if (np.max(np.abs(traj[:])) > 0.5):
+            ax[0].set_aspect('equal') # Only set the plot to be square for stack-of-stars 
+        else:
+            [a.set_aspect('equal') for a in ax]
         fig.tight_layout()
         plt.close()
     return fig
@@ -60,6 +62,7 @@ def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sp
 def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None):
     with h5py.File(filename) as ff:
         traj = np.array(ff['trajectory'])
+        print(traj.shape)
         if color == 'read':
             c = np.tile(np.arange(len(traj[0, sl_read, 0])), len(traj[sl_spoke, 0, 0]))
         elif color == 'seg':
@@ -67,7 +70,7 @@ def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sp
                                   len(traj[0, sl_read, 0])),
                         int(len(traj[sl_spoke, 0, 0])/sps))
         else:
-            c = np.tile(np.arange(len(traj[sl_spoke, 0, 0])), len(traj[0, sl_read, 0]))
+            c = np.tile(np.arange(len(traj[sl_spoke, 0, 0])), (len(traj[0, sl_read, 0]), 1)).ravel(order='F')
         fig = plt.figure(figsize=(12,12))
         ax = fig.add_subplot(projection='3d')
         ax.scatter(traj[sl_spoke, sl_read, 0],
