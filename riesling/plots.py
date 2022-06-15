@@ -8,24 +8,26 @@ import warnings
 plt.rcParams['font.size'] = 20
 
 
-def basis(path, sl_spoke=slice(None),b=slice(None)):
-    f = h5py.File(path, 'r')
-    basis = f['basis'][b,sl_spoke]
-    print(basis.shape)
-    f.close()
-    fig, ax = plt.subplots(figsize=(16, 6))
-    ax.plot(basis.T)
-    ax.legend([str(x) for x in range(basis.shape[1])])
-    plt.show()
+def basis(path, sl_spoke=slice(None), b=slice(None)):
+    with h5py.File(path, 'r') as f:
+        basis = f['basis'][b,sl_spoke]
+        print(basis.shape)
+        f.close()
+        fig, ax = plt.subplots(figsize=(16, 6))
+        ax.plot(basis.T)
+        ax.legend([str(x) for x in range(basis.shape[1])])
+        plt.close()
+        return fig
 
 
-def dynamics(path):
-    f = h5py.File(path, 'r')
-    dyn = f['dynamics'][:]
-    f.close()
-    fig, ax = plt.subplots(figsize=(16, 6))
-    ax.plot(dyn)
-    plt.show()
+def dynamics(filename):
+    with h5py.File(filename) as f:
+        dyn = f['dynamics'][:]
+        f.close()
+        fig, ax = plt.subplots(figsize=(16, 6))
+        ax.plot(dyn)
+        plt.close()
+        return fig
 
 
 def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None):
