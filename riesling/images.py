@@ -48,13 +48,13 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=
 
     fig, ax = plt.subplots(1, 3, figsize=(figsize*3, figsize), facecolor='black')
     ax[0].imshow(get_slice(img, pos[2], 'x'),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='none')
     ax[0].axis('image')
     ax[1].imshow(get_slice(img, pos[1], 'y'),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='none')
     ax[1].axis('image')
     im = ax[2].imshow(get_slice(img, pos[0], 'z'),
-                      cmap=cmap, vmin=clim[0], vmax=clim[1])
+                      cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='none')
     ax[2].axis('image')
     fig.tight_layout(pad=0)
     if cbar:
@@ -236,8 +236,8 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
         title (str): Plot title. Defaults to ''.
     """
 
-    f = h5py.File(file, 'r')
-    I = f[dset][:]
+    with h5py.File(file, 'r') as f:
+        I = f[dset][:]
 
     [nz, ny, nx, nc] = np.shape(I)
     if not slpos:
@@ -351,9 +351,9 @@ def diff(fnames, titles=None, dsets=['image'],
                     templim = np.nanpercentile(diffs[ii][jj], (2, 98))
                     difflim = [np.amin([difflim[0], templim[0]]), np.amax(
                         [difflim[1], templim[1]])]
-            if difflim[0] < 0:
-                difflim[1] = np.amax([np.abs(difflim[0]), np.abs(difflim[1])])
-                difflim[0] = -difflim[1]
+
+            difflim[1] = np.amax([np.abs(difflim[0]), np.abs(difflim[1])])
+            difflim[0] = -difflim[1]
 
         fig, ax = plt.subplots(nI, nI, figsize=(
             nI*figsize, nI*figsize), facecolor='black')

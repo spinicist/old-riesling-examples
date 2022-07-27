@@ -124,12 +124,18 @@ def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
     return fig
 
 
-def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(None, None, 1)):
+def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(None, None, 1), log=False, clim=None):
     with h5py.File(filename) as f:
         data = np.array(f[dset][sl_spoke, sl_read]).T
-        fig, ax = plt.subplots(1, 1, figsize=(12, 6), facecolor='w')
+        if log:
+            data = np.log(data)
+            if clim is None:
+                clim = (np.log(1E-10), np.max(data))
+        elif clim is None:
+            clim = np.nanpercentile(np.abs(data), (2, 98))
+        fig, ax = plt.subplots(1, 1, figsize=(18, 6), facecolor='w')
         im = ax.imshow(data, interpolation='nearest',
-                       cmap='cmr.ember')
+                       cmap='cmr.ember', vmin=clim[0], vmax=clim[1])
         ax.set_xlabel('Spoke')
         ax.set_ylabel('Readout')
         ax.axis('auto')

@@ -23,7 +23,7 @@ def get_slice(img, sl, axis):
     elif axis == 'y':
         data = img[:, sl, :].T
     else:
-        data = img[:, :, sl].T
+        data = np.flipud(img[:, :, sl])
     return data
 
 def mid_slice(axis, nx, ny, nz):
