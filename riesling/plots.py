@@ -94,7 +94,7 @@ def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
         else:
             data = np.array(
                 f[dset][vol, sl_spoke, sl_read, channel]).squeeze().T
-        fig, ax = plt.subplots(2, 1, figsize=(12, 6), facecolor='w')
+        fig, ax = plt.subplots(2, 1, figsize=(18, 12), facecolor='w')
         if comp == 'mag':
             if clim is None:
                 dmax = np.max(np.abs(data))
@@ -124,7 +124,7 @@ def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
     return fig
 
 
-def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(None, None, 1), log=False, clim=None):
+def sdc(filename, dset='sdc', sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1), log=False, clim=None):
     with h5py.File(filename) as f:
         data = np.array(f[dset][sl_spoke, sl_read]).T
         if log:
@@ -138,7 +138,6 @@ def sdc(filename, dset='sdc', sl_read=slice(0, -1, 1), sl_spoke=slice(None, None
                        cmap='cmr.ember', vmin=clim[0], vmax=clim[1])
         ax.set_xlabel('Spoke')
         ax.set_ylabel('Readout')
-        ax.axis('auto')
         ax.axis('auto')
         fig.colorbar(im, location='right')
         fig.tight_layout()
