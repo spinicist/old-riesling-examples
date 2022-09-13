@@ -48,13 +48,13 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=
 
     fig, ax = plt.subplots(1, 3, figsize=(figsize*3, figsize), facecolor='black')
     ax[0].imshow(get_slice(img, pos[2], 'x'),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='none')
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='bilinear')
     ax[0].axis('image')
     ax[1].imshow(get_slice(img, pos[1], 'y'),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='none')
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='bilinear')
     ax[1].axis('image')
     im = ax[2].imshow(get_slice(img, pos[0], 'z'),
-                      cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='none')
+                      cmap=cmap, vmin=clim[0], vmax=clim[1], interpolation='bilinear')
     ax[2].axis('image')
     fig.tight_layout(pad=0)
     if cbar:
@@ -316,11 +316,10 @@ def diff(fnames, titles=None, dsets=['image'],
                 warnings.warn('Number of titles and files did not match')
                 return
 
-        for ii in range(nI):
-            for jj in range(nI - ii - 1):
-                if (np.shape(imgs[ii]) != np.shape(imgs[ii+1+jj])):
-                    warnings.warn('Image dimensions did not match')
-                    return
+        for ii in range(nI - 1):
+            if (np.shape(imgs[ii]) != np.shape(imgs[ii+1])):
+                warnings.warn('Image dimensions did not match')
+                return
 
         [nz, ny, nx] = np.shape(imgs[0])
         if not slpos:
@@ -379,6 +378,112 @@ def diff(fnames, titles=None, dsets=['image'],
         cbi.ax.yaxis.set_tick_params(color='w', labelcolor='w')
         # axd = fig.add_axes([0.98, 0.2, 0.02, 0.6])
         cbd = fig.colorbar(imd, ax=ax, location='right',
+                           aspect=50, pad=0.01, shrink=0.8)
+        cbd.ax.xaxis.set_tick_params(color='w', labelcolor='w')
+        cbd.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+
+        plt.close()
+        return fig
+
+
+def diffL(fnames, titles=None, dsets=['image'],
+         axis='z', slpos=None, iv=0, ifr=0, ic=0,
+         comp='mag', clim=None, cmap='gray',
+         difflim=None, diffmap='cmr.iceburn',
+         figsize=4):
+    """Plot the difference between images
+
+    Args:
+        fnames (str): Paths to .h5 files
+        titles (str): Titles
+        dset (str): Dataset within h5 file to plot. Default "image"
+        title (str): Plot title. Defaults to ''.
+        sli  (int): Slice axis (0='x',1='y',2='z')
+        iz   (int): Slice index for z-axis. Default 2.
+        iv   (int): Volume to slice, default 0.
+        cmap (str): colormap. Defaults to 'gray'.
+        clim (float): Image window.
+        difflim (float): Difference window (%)
+        comp (str, opt): mag/pha/real/imaginary. Default mag
+    """
+
+    if len(dsets) == 1:
+        dsets = dsets * len(fnames)
+
+    try:
+        iterator = iter(ifr)
+    except:
+        ifr = [ifr] * len(fnames)
+
+    with contextlib.ExitStack() as stack:
+        files = [stack.enter_context(h5py.File(fn, 'r')) for fn in fnames]
+        imgs = [get_img(f, ii, iv, ic, comp, ds) for f, ds, ii in zip(files, dsets, ifr)]
+
+        nI = len(imgs)
+
+        if titles is not None:
+            if len(titles) != len(fnames):
+                warnings.warn('Number of titles and files did not match')
+                return
+
+        for ii in range(nI - 1):
+            if (np.shape(imgs[ii]) != np.shape(imgs[ii+1])):
+                warnings.warn('Image dimensions did not match')
+                return
+
+        [nz, ny, nx] = np.shape(imgs[0])
+        if not slpos:
+            slpos = mid_slice(axis, nx, ny, nz)
+
+        fn = get_comp(comp)
+        slices = [get_slice(img, slpos, axis) for img in imgs]
+        if not clim:
+            clim = (np.inf, -np.inf)
+            for sl in slices:
+                temp_lim = np.nanpercentile(sl, (2, 98))
+                clim = [np.amin([clim[0], temp_lim[0]]),
+                        np.amax([clim[1], temp_lim[1]])]
+            if clim[0] < 0:
+                clim[1] = np.amax([np.abs(clim[0]), np.abs(clim[1])])
+                clim[0] = -clim[1]
+
+        diffs = []
+        for ii in range(nI - 1):
+            diffs.append((slices[ii + 1] - slices[ii]) * 100 / clim[1])
+
+        if not difflim:
+            difflim = (np.inf, -np.inf)
+            for ii in range(nI - 1):
+                templim = np.nanpercentile(diffs[ii], (2, 98))
+                difflim = [np.amin([difflim[0], templim[0]]), np.amax([difflim[1], templim[1]])]
+
+            difflim[1] = np.amax([np.abs(difflim[0]), np.abs(difflim[1])])
+            difflim[0] = -difflim[1]
+
+        fig, ax = plt.subplots(2, nI, figsize=(
+            nI*figsize, 2*figsize), facecolor='black')
+        for ii in range(nI):
+            imi = ax[0, ii].imshow(slices[ii], cmap=cmap, interpolation='gaussian',
+                                    vmin=clim[0], vmax=clim[1])
+            ax[0, ii].axis('off')
+            if titles is not None:
+                ax[0, ii].text(0.5, 0.9, titles[ii], color='white',
+                                transform=ax[0, ii].transAxes, ha='center')
+            if ii > 0:
+                imd = ax[1, ii].imshow(diffs[ii - 1], cmap=diffmap, interpolation='gaussian',
+                                       vmin=difflim[0], vmax=difflim[1])
+                ax[1, ii].axis('off')
+            else:
+                ax[1, ii].set_facecolor('black')
+                ax[1, ii].axis('off')
+        # axi = fig.add_axes([0.02, 0.2, 0.02, 0.6])
+        fig.subplots_adjust(wspace=0, hspace=0)
+        cbi = fig.colorbar(imi, ax=ax[0, :], location='left',
+                           aspect=50, pad=0.01, shrink=0.8)
+        cbi.ax.xaxis.set_tick_params(color='w', labelcolor='w')
+        cbi.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+        # axd = fig.add_axes([0.98, 0.2, 0.02, 0.6])
+        cbd = fig.colorbar(imd, ax=ax[1, :], location='left',
                            aspect=50, pad=0.01, shrink=0.8)
         cbd.ax.xaxis.set_tick_params(color='w', labelcolor='w')
         cbd.ax.yaxis.set_tick_params(color='w', labelcolor='w')
