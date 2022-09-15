@@ -117,6 +117,8 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, figsize=5,
 
     with h5py.File(file, 'r') as f:
         img = get_img(f, ie, iv, comp, dset)
+        voxel_size = f['info']['voxel_size'][0]
+            
     [nx, ny, nz] = img.shape
 
     if not (pos):
@@ -125,15 +127,19 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ie=0, figsize=5,
         clim = sym_lim(img)
 
     fig, ax = plt.subplots(1, 3, figsize=(figsize*3, figsize), facecolor='black')
-    ax[0].imshow(get_slice(img, pos[2], 'x'),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
-    ax[0].axis('image')
+    
+    ax[0].imshow(get_slice(img, pos[0], 'x'),
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], aspect=voxel_size[1]/voxel_size[2])
+    ax[0].axis('off')
+
     ax[1].imshow(get_slice(img, pos[1], 'y'),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
-    ax[1].axis('image')
-    im = ax[2].imshow(get_slice(img, pos[0], 'z'),
-                      cmap=cmap, vmin=clim[0], vmax=clim[1])
-    ax[2].axis('image')
+                 cmap=cmap, vmin=clim[0], vmax=clim[1], aspect=voxel_size[0]/voxel_size[2])
+    ax[1].axis('off')
+
+    im = ax[2].imshow(get_slice(img, pos[2], 'z'),
+                      cmap=cmap, vmin=clim[0], vmax=clim[1], aspect=voxel_size[0]/voxel_size[1])
+    ax[2].axis('off')
+
     fig.tight_layout(pad=0)
     if cbar:
         cb = fig.colorbar(im, location='right', ax=ax)
@@ -296,6 +302,7 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
 
     f = h5py.File(file, 'r')
     I = f[dset][:]
+    voxel_size = f['info']['voxel_size'][0]
 
     [nz, ny, nx, nc] = np.shape(I)
     if not slpos:
