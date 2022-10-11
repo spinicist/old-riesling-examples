@@ -75,9 +75,11 @@ def convert_rrsg(input_fname, output_fname, matrix, voxel_size):
     traj = traj.transpose((2, 1, 0))
     [npoints, nshots, nd] = np.shape(traj)
 
-    # If 2D trajectory extend to third dimension
-    if nd == 2:
-        traj = np.pad(traj, ((0, 0), (0, 0), (0, 1)))
+    # Strip 3rd dimension of radial dataset
+    print(traj)
+    if nd == 3:
+        traj = traj[:,:,0:2]
+    print(traj)
 
     # Create info struct
     read_points = np.shape(rawdata)[1]

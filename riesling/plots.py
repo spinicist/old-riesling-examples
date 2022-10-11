@@ -3,6 +3,7 @@ import h5py
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as colors
+from matplotlib.collections import LineCollection
 import cmasher
 import warnings
 plt.rcParams['font.size'] = 20
@@ -11,8 +12,6 @@ plt.rcParams['font.size'] = 20
 def basis(path, sl_spoke=slice(None), b=slice(None)):
     with h5py.File(path, 'r') as f:
         basis = f['basis'][b,sl_spoke]
-        print(basis.shape)
-        f.close()
         fig, ax = plt.subplots(figsize=(16, 6))
         ax.plot(basis.T)
         ax.legend([str(x) for x in range(basis.shape[1])])
@@ -20,15 +19,23 @@ def basis(path, sl_spoke=slice(None), b=slice(None)):
         return fig
 
 
-def dynamics(filename):
+def dynamics(filename, sl=slice(None)):
     with h5py.File(filename) as f:
-        dyn = f['dynamics'][:]
-        f.close()
+        dyn = f['dynamics'][sl,:]
         fig, ax = plt.subplots(figsize=(16, 6))
-        ax.plot(dyn)
+        ax.plot(dyn.T)
+        ax.axhline(0)
         plt.close()
         return fig
 
+def dictionary(filename):
+    with h5py.File(filename) as f:
+        d = f['dictionary']
+        fig = plt.figure(figsize=(12,12))
+        ax = fig.add_subplot(projection='3d')
+        ax.scatter(xs = d[:, 0], ys = d[:, 1], zs = d[:, 2])
+        plt.close()
+        return fig
 
 def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None):
     with h5py.File(filename) as f:
@@ -61,10 +68,32 @@ def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sp
     return fig
 
 
-def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None):
+def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None, angles=[30,-60,0]):
+    with h5py.File(filename) as ff:
+        traj = ff['trajectory'][sl_spoke, sl_read, :]
+        if color == 'read':
+            c = np.tile(np.arange(traj.shape[1], traj.shape[0]))
+        elif color == 'seg':
+            c = np.tile(np.repeat(np.arange(sps), traj.shape[1]), int(traj.shape[0]/sps))
+        else:
+            c = np.tile(np.arange(traj.shape[0]), (traj.shape[1], 1))
+        fig = plt.figure(figsize=(12,12))
+        ax = fig.add_subplot(projection='3d')
+
+        x, y, z = np.array([[-0.5,0,0],[0,-0.5,0],[0,0,-0.5]])
+        u, v, w = np.array([[1,0,0],[0,1,0],[0,0,1]])
+        ax.quiver(x,y,z,u,v,w,arrow_length_ratio=0.1)
+        ax.scatter(traj[:, :, 0], traj[:, :, 1], traj[:, :, 2],
+                   c=c, s=3, cmap='cmr.lavender')
+
+        ax.view_init(elev=angles[0], azim=angles[1], vertical_axis='z')
+        fig.tight_layout()
+        plt.close()
+    return fig
+
+def trajEnds(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None, angles=[30,-60,0]):
     with h5py.File(filename) as ff:
         traj = np.array(ff['trajectory'])
-        print(traj.shape)
         if color == 'read':
             c = np.tile(np.arange(len(traj[0, sl_read, 0])), len(traj[sl_spoke, 0, 0]))
         elif color == 'seg':
@@ -75,14 +104,22 @@ def traj3d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sp
             c = np.tile(np.arange(len(traj[sl_spoke, 0, 0])), (len(traj[0, sl_read, 0]), 1)).ravel(order='F')
         fig = plt.figure(figsize=(12,12))
         ax = fig.add_subplot(projection='3d')
-        ax.scatter(traj[sl_spoke, sl_read, 0],
-                   traj[sl_spoke, sl_read, 1],
-                   traj[sl_spoke, sl_read, 2],
-                   c=c, s=3)
+
+        x, y, z = np.array([[-0.5,0,0],[0,-0.5,0],[0,0,-0.5]])
+        u, v, w = np.array([[1,0,0],[0,1,0],[0,0,1]])
+        ax.quiver(x,y,z,u,v,w,arrow_length_ratio=0.1)
+        print((traj[sl_spoke, sl_read, 0]).shape)
+        ax.plot(xs=np.ravel(traj[sl_spoke, sl_read, 0], order='F'),
+                ys=np.ravel(traj[sl_spoke, sl_read, 1], order='F'),
+                zs=np.ravel(traj[sl_spoke, sl_read, 2], order='F'),
+                c=c, cmap='cmr.lavender')
+        # ax.set_axis_off()
+        ax.grid('off')
+
+        ax.view_init(elev=angles[0], azim=angles[1], vertical_axis='z')
         fig.tight_layout()
         plt.close()
     return fig
-
 
 def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
            sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1),

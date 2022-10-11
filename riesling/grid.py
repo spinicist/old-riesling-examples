@@ -14,8 +14,7 @@ def get_grid(f, ifr, ic, comp, dset):
     grid = fn(D[:, :, :, ifr, ic])
     return grid
 
-def planes(file, dset='cartesian', title=None, pos=None, ifr=0, ic=0, figsize=5,
-           comp='log', cbar=True, cmap='cmr.amber', clim=None):
+def planes(file, dset='cartesian', title=None, pos=None, ifr=0, ic=0, figsize=8, real=False):
     """3 plane plot of 3D image data in an h5 file
 
     Args:
@@ -31,28 +30,36 @@ def planes(file, dset='cartesian', title=None, pos=None, ifr=0, ic=0, figsize=5,
     """
 
     with h5py.File(file, 'r') as f:
-        img = get_grid(f, ifr, ic, comp, dset)
-    [nz, ny, nx] = img.shape
+        if real:
+            img1 = get_grid(f, ifr, ic, 'real', dset)
+            img2 = get_grid(f, ifr, ic, 'imag', dset)
+            cm1 = 'cmr.iceburn'
+            cm2 = 'cmr.iceburn'
+        else:
+            img1 = get_grid(f, ifr, ic, 'log', dset)
+            img2 = get_grid(f, ifr, ic, 'pha', dset)
+            cm1 = 'cmr.ember'
+            cm2 = 'cmr.infinity'
+    [nz, ny, nx] = img1.shape
 
     if not (pos):
         pos = (int(nz/2), int(ny/2), int(nx/2))
-    if not clim:
-        clim = sym_lim(img)
 
-    fig, ax = plt.subplots(1, 3, figsize=(figsize*3, figsize), facecolor='black')
-    ax[0].imshow(get_slice(img, pos[2], 'x'),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
-    ax[0].axis('image')
-    ax[1].imshow(get_slice(img, pos[1], 'y'),
-                 cmap=cmap, vmin=clim[0], vmax=clim[1])
-    ax[1].axis('image')
-    im = ax[2].imshow(get_slice(img, pos[0], 'z'),
-                      cmap=cmap, vmin=clim[0], vmax=clim[1])
-    ax[2].axis('image')
+    fig, ax = plt.subplots(2, 3, figsize=(figsize*3, figsize), facecolor='black')
+    ax[0, 0].imshow(get_slice(img1, pos[2], 'x'), cmap=cm1, interpolation='none')
+    ax[0, 1].imshow(get_slice(img1, pos[1], 'y'), cmap=cm1, interpolation='none')
+    mag_im = ax[0, 2].imshow(get_slice(img1, pos[0], 'z'), cmap=cm1, interpolation='none')
+    ax[1, 0].imshow(get_slice(img2, pos[2], 'x'), cmap=cm2, interpolation='none')
+    ax[1, 1].imshow(get_slice(img2, pos[1], 'y'), cmap=cm2, interpolation='none')
+    pha_im = ax[1, 2].imshow(get_slice(img2, pos[0], 'z'), cmap=cm2, interpolation='none')
+    # for a in ax:
+    #     a.axis('image')
     fig.tight_layout(pad=0)
-    if cbar:
-        cb = fig.colorbar(im, location='right', ax=ax)
-        cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+
+    cb = fig.colorbar(mag_im, location='right', ax=ax[0, :])
+    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
+    cb = fig.colorbar(pha_im, location='right', ax=ax[1, :])
+    cb.ax.yaxis.set_tick_params(color='w', labelcolor='w')
     fig.suptitle(title, color='white')
     
     plt.close()
@@ -61,7 +68,7 @@ def planes(file, dset='cartesian', title=None, pos=None, ifr=0, ic=0, figsize=5,
 
 def slices(file, dset='cartesian', title=None, ifr=0, ic=0,
            nslice=4, nrows=1, axis='z', start=None, stop=None,
-           comp='log', cmap='cmr.amber', clim=None, cbar=True, figsize=3):
+           comp='real', cmap=None, clim=None, cbar=True, figsize=3):
     """Plot slices along one axis
 
     Args:
@@ -82,7 +89,9 @@ def slices(file, dset='cartesian', title=None, ifr=0, ic=0,
     [nz, ny, nx] = img.shape
 
     if not clim:
-        clim = np.nanpercentile(img, (2, 98))
+        clim = get_clim(img, comp)
+    if not cmap:
+        cmap = get_cmap(comp)
 
     if axis == 'z':
         maxn = nz - 1

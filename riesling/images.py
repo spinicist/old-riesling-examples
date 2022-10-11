@@ -22,7 +22,7 @@ def get_img(f, ifr, iv, ic, comp, dset):
     return img
 
 def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=5,
-           comp='mag', cbar=True, cmap='gray', clim=None):
+           comp='mag', cbar=True, cmap=None, clim=None):
     """3 plane plot of 3D image data in an h5 file
 
     Args:
@@ -44,7 +44,9 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=
     if not (pos):
         pos = (int(nz/2), int(ny/2), int(nx/2))
     if not clim:
-        clim = sym_lim(img)
+        clim = get_clim(img, comp)
+    if not cmap:
+        cmap = get_cmap(comp)
 
     fig, ax = plt.subplots(1, 3, figsize=(figsize*3, figsize), facecolor='black')
     ax[0].imshow(get_slice(img, pos[2], 'x'),
@@ -68,7 +70,7 @@ def planes(file, dset='image', title=None, pos=None, iv=0, ifr=0, ic=0, figsize=
 
 def slices(file, dset='image', title=None, ifr=0, iv=0, ic=0,
            nslice=4, nrows=1, axis='z', start=None, stop=None,
-           comp='mag', cmap='gray', clim=None, cbar=True, figsize=3):
+           comp='mag', cmap=None, clim=None, cbar=True, figsize=3):
     """Plot slices along one axis
 
     Args:
@@ -89,8 +91,10 @@ def slices(file, dset='image', title=None, ifr=0, iv=0, ic=0,
     [nz, ny, nx] = img.shape
 
     if not clim:
-        clim = np.nanpercentile(img, (2, 98))
-
+        clim = get_clim(img, comp)
+    if not cmap:
+        cmap = get_cmap(comp)
+        
     if axis == 'z':
         maxn = nz - 1
     elif axis == 'y':
@@ -137,7 +141,7 @@ def slices(file, dset='image', title=None, ifr=0, iv=0, ic=0,
 
 
 def series(file, dset='image', title=None, ifr=None, iv=None, ic=None,
-           nrows=1, axis='z', slpos=None, figsize=3,
+           slc=slice(None), nrows=1, axis='z', slpos=0.5, figsize=3,
            comp='mag', cmap='gray', clim=None, cbar=True):
     """One slice through echoes or volumes
 
@@ -162,35 +166,29 @@ def series(file, dset='image', title=None, ifr=None, iv=None, ic=None,
         if D.ndim == 4:
             # Channels only image, e.g. phantom
             [nz, ny, nx, nc] = D.shape
-            nslice = nc
             img = fn(D).transpose(3, 0, 1, 2)
         elif D.ndim == 5:
             [nv, nz, ny, nx, nfr] = D.shape
             if iv is not None:
-                nslice = nfr
-                img = fn(D[iv, :, :, :, :].transpose((3, 0, 1, 2)))
+                img = fn(D[iv, :, :, :, slc].transpose((3, 0, 1, 2)))
             elif ifr is not None:
-                nslice = nv
-                img = fn(D[:, :, :, :, ifr])
+                img = fn(D[slc, :, :, :, ifr])
             else:
                 raise Exception('Either ifr or iv must be specified')
         else:
             # Assume 6D
             [nv, nz, ny, nx, nfr, nc] = D.shape
             if iv is not None and ic is not None:
-                nslice = nfr
-                img = fn(D[iv, :, :, :, :, ic].transpose((3, 0, 1, 2)))
+                img = fn(D[iv, :, :, :, slc, ic].transpose((3, 0, 1, 2)))
             elif iv is not None and ifr is not None:
-                nslice = nc
-                img = fn(D[iv, :, :, :, ifr, :].transpose((3, 0, 1, 2)))
+                img = fn(D[iv, :, :, :, ifr, slc].transpose((3, 0, 1, 2)))
             elif ifr is not None and ic is not None:
-                nslice = nv
-                img = fn(D[:, :, :, :, ifr, ic])
+                img = fn(D[slc, :, :, :, ifr, ic])
             else:
                 raise Exception('A pair of ifr/ic/iv must be specified')
+    nslice = img.shape[0]
 
-    if slpos is None:
-        slpos = mid_slice(axis, nx, ny, nz)
+    slpos = get_slpos(axis, nx, ny, nz, slpos)
 
     if not clim:
         clim = np.nanpercentile(img, (2, 98))
@@ -227,7 +225,7 @@ def series(file, dset='image', title=None, ifr=None, iv=None, ic=None,
     return fig
 
 
-def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
+def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=0.5):
     """Plot a slice through each channel of a SENSE dataset
 
     Args:
@@ -240,8 +238,7 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
         I = f[dset][:]
 
     [nz, ny, nx, nc] = np.shape(I)
-    if not slpos:
-        slpos = mid_slice(axis, nx, ny, nz)
+    slpos = get_slpos(axis, nx, ny, nz, slpos)
 
     ncols = int(np.ceil(nc / nrows))
 
@@ -277,7 +274,7 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=None):
 
 
 def diff(fnames, titles=None, dsets=['image'],
-         axis='z', slpos=None, iv=0, ifr=0, ic=0,
+         axis='z', slpos=0.5, iv=0, ifr=0, ic=0,
          comp='mag', clim=None, cmap='gray',
          difflim=None, diffmap='cmr.iceburn',
          figsize=4):
@@ -322,8 +319,7 @@ def diff(fnames, titles=None, dsets=['image'],
                 return
 
         [nz, ny, nx] = np.shape(imgs[0])
-        if not slpos:
-            slpos = mid_slice(axis, nx, ny, nz)
+        slpos = get_slpos(axis, nx, ny, nz, slpos)
 
         fn = get_comp(comp)
         slices = [get_slice(img, slpos, axis) for img in imgs]
@@ -387,10 +383,10 @@ def diff(fnames, titles=None, dsets=['image'],
 
 
 def diffL(fnames, titles=None, dsets=['image'],
-         axis='z', slpos=None, iv=0, ifr=0, ic=0,
+         axis='z', slpos=0.5, iv=0, ifr=0, ic=0,
          comp='mag', clim=None, cmap='gray',
          difflim=None, diffmap='cmr.iceburn',
-         figsize=4):
+         figsize=8, interp='none', mode='progressive'):
     """Plot the difference between images
 
     Args:
@@ -432,8 +428,7 @@ def diffL(fnames, titles=None, dsets=['image'],
                 return
 
         [nz, ny, nx] = np.shape(imgs[0])
-        if not slpos:
-            slpos = mid_slice(axis, nx, ny, nz)
+        slpos = get_slpos(axis, nx, ny, nz, slpos)
 
         fn = get_comp(comp)
         slices = [get_slice(img, slpos, axis) for img in imgs]
@@ -449,7 +444,11 @@ def diffL(fnames, titles=None, dsets=['image'],
 
         diffs = []
         for ii in range(nI - 1):
-            diffs.append((slices[ii + 1] - slices[ii]) * 100 / clim[1])
+            if mode == 'progressive':
+                index = ii
+            else:
+                index = 0
+            diffs.append((slices[ii + 1] - slices[index]) * 100 / clim[1])
 
         if not difflim:
             difflim = (np.inf, -np.inf)
@@ -463,14 +462,14 @@ def diffL(fnames, titles=None, dsets=['image'],
         fig, ax = plt.subplots(2, nI, figsize=(
             nI*figsize, 2*figsize), facecolor='black')
         for ii in range(nI):
-            imi = ax[0, ii].imshow(slices[ii], cmap=cmap, interpolation='gaussian',
+            imi = ax[0, ii].imshow(slices[ii], cmap=cmap, interpolation=interp,
                                     vmin=clim[0], vmax=clim[1])
             ax[0, ii].axis('off')
             if titles is not None:
-                ax[0, ii].text(0.5, 0.9, titles[ii], color='white',
-                                transform=ax[0, ii].transAxes, ha='center')
+                ax[0, ii].text(0.1, 0.9, titles[ii], color='white',
+                                transform=ax[0, ii].transAxes, ha='left')
             if ii > 0:
-                imd = ax[1, ii].imshow(diffs[ii - 1], cmap=diffmap, interpolation='gaussian',
+                imd = ax[1, ii].imshow(diffs[ii - 1], cmap=diffmap, interpolation=interp,
                                        vmin=difflim[0], vmax=difflim[1])
                 ax[1, ii].axis('off')
             else:

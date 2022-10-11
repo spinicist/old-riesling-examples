@@ -17,6 +17,33 @@ def get_comp(component):
         warnings.warn('Unknown component, taking real')
     return fn
 
+def get_cmap(component):
+    if component == 'mag':
+        return 'gray'
+    elif component == 'log':
+        return 'cmr.ember'
+    elif component == 'pha':
+        return 'cmr.infinity'
+    elif component == 'real':
+        return 'cmr.iceburn'
+    elif component == 'imag':
+        return 'cmr.iceburn'
+    else:
+        warnings.warn('Unknown component, assume real')
+        return 'cmr.iceburn'
+
+def get_clim(img, component):
+    if component == 'log':
+        clim = np.nanpercentile(img, (2, 98))
+    elif component == 'mag':
+        clim = np.nanpercentile(img, (2, 98))
+    else:
+        clim = np.nanpercentile(img, (2, 98))
+        if clim[0] < 0:
+            clim[1] = np.amax([np.abs(clim[0]), np.abs(clim[1])])
+            clim[0] = -clim[1]
+    return clim
+
 def get_slice(img, sl, axis):
     if axis == 'z':
         data = img[sl, :, :].T
@@ -26,21 +53,14 @@ def get_slice(img, sl, axis):
         data = np.flipud(img[:, :, sl])
     return data
 
-def mid_slice(axis, nx, ny, nz):
+def get_slpos(axis, nx, ny, nz, pos):
     if axis == 'z':
-        slpos = int(np.floor(nz / 2))
+        slpos = int(np.floor(nz * pos))
     elif axis == 'y':
-        slpos = int(np.floor(ny / 2))
+        slpos = int(np.floor(ny * pos))
     else:
-        slpos = int(np.floor(nx / 2))
+        slpos = int(np.floor(nx * pos))
     return slpos
-
-def sym_lim(img):
-    lim = np.nanpercentile(img, (2, 98))
-    if lim[0] < 0:
-        lim[1] = np.amax([np.abs(lim[0]), np.abs(lim[1])])
-        lim[0] = -lim[1]
-    return lim
 
 def add_colorbar(fig, im, ax, clabel, clims,
              black_backg=True, tick_fmt='{:.4g}', orient='v'):
