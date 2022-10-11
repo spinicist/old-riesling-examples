@@ -121,40 +121,48 @@ def trajEnds(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', 
         plt.close()
     return fig
 
-def kspace(filename, dset='noncartesian', title=None, vol=0, channel=0,
+def kspace(filename, dset='noncartesian', title=None, vol=0, slc=0, channel=0,
            sl_read=slice(None, None, 1), sl_spoke=slice(None, None, 1),
-           comp='mag', clim=None):
+           split=False, clim=None):
     with h5py.File(filename) as f:
         dsetw = f[dset]
-        if dsetw.ndim == 3:
-            data = np.array(f[dset][sl_spoke, sl_read, channel]).squeeze().T
+        if dsetw.ndim == 4:
+            data = np.array(f[dset][slc, sl_spoke, sl_read, channel]).squeeze().T
         else:
             data = np.array(
-                f[dset][vol, sl_spoke, sl_read, channel]).squeeze().T
-        fig, ax = plt.subplots(2, 1, figsize=(18, 12), facecolor='w')
-        if comp == 'mag':
-            if clim is None:
-                dmax = np.max(np.abs(data))
-                clim = (np.log(1E-10), np.log(dmax))
-            im0 = ax[0].imshow(np.log(np.abs(data+1E-10)), vmin=clim[0], vmax=clim[1],
-                               interpolation='nearest', cmap='cmr.ember')
-            im1 = ax[1].imshow(np.angle(data), interpolation='nearest',
-                               cmap='cmr.infinity', vmin=-np.pi, vmax=np.pi)
-        else:
+                f[dset][vol, slc, sl_spoke, sl_read, channel]).squeeze().T
+
+        if split:
             if clim is None:
                 temp_lim = np.nanpercentile(np.abs(data), (98))
                 clim = (-temp_lim, temp_lim)
+            fig, ax = plt.subplots(2, 1, figsize=(18, 12), facecolor='w')
             im0 = ax[0].imshow(np.real(data), interpolation='nearest', cmap='cmr.iceburn',
                                vmin=clim[0], vmax=clim[1])
             im1 = ax[1].imshow(np.imag(data), interpolation='nearest', cmap='cmr.iceburn',
                                vmin=clim[0], vmax=clim[1])
-        fig.colorbar(im0, ax=ax[0], location='right')
-        fig.colorbar(im1, ax=ax[1], location='right')
-        ax[1].set_xlabel('Spoke')
-        ax[0].set_ylabel('Readout')
-        ax[1].set_ylabel('Readout')
-        ax[0].axis('auto')
-        ax[1].axis('auto')
+            fig.colorbar(im0, ax=ax[0], location='right')
+            fig.colorbar(im1, ax=ax[1], location='right')
+            ax[1].set_xlabel('Spoke')
+            ax[0].set_ylabel('Readout')
+            ax[1].set_ylabel('Readout')
+            ax[0].axis('auto')
+            ax[1].axis('auto')
+        else:
+            norm = colors.Normalize(vmin=-np.pi, vmax=np.pi)
+            smap = cm.ScalarMappable(norm=norm, cmap='cmr.infinity')
+            pha = np.angle(data)
+            mag = np.log1p(np.abs(data))
+            lims = np.nanpercentile(mag, (2, 98))
+            mag = np.clip((mag - lims[0]) / (lims[1] - lims[0]), 0, 1)
+            colorized = smap.to_rgba(pha, alpha=1., bytes=False)[:, :, 0:3]
+            colorized = colorized * mag[:, :, None]
+            fig, ax = plt.subplots(1, 1, figsize=(12, 6), facecolor='w')
+            ax.imshow(colorized)
+            ax.set_xlabel('Spoke')
+            ax.set_ylabel('Readout')
+            ax.axis('auto')
+
         fig.tight_layout(pad=0)
         fig.suptitle(title)
         plt.close()
