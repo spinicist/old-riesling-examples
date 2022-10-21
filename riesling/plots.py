@@ -40,7 +40,7 @@ def dictionary(filename):
 def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sps=None):
     with h5py.File(filename) as f:
         traj = np.array(f['trajectory'])
-        fig, ax = plt.subplots(1, 3, figsize=(12, 4), facecolor='w')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 4), facecolor='w')
         if color == 'read':
             c = np.tile(np.arange(len(traj[0, sl_read, 0])), len(traj[sl_spoke, 0, 0]))
         elif color == 'seg':
@@ -49,20 +49,10 @@ def traj2d(filename, sl_read=slice(None), sl_spoke=slice(None), color='read', sp
                         int(len(traj[sl_spoke, 0, 0])/sps))
         else:
             c = np.tile(np.arange(len(traj[sl_spoke, 0, 0])), (len(traj[0, sl_read, 0]), 1)).ravel(order='F')
-        ax[0].grid()
-        ax[0].scatter(traj[sl_spoke, sl_read, 0],
+        ax.grid()
+        ax.scatter(traj[sl_spoke, sl_read, 0],
                       traj[sl_spoke, sl_read, 1], c=c, s=0.5)
-        ax[1].grid()
-        ax[1].scatter(traj[sl_spoke, sl_read, 0],
-                      traj[sl_spoke, sl_read, 2], c=c, s=0.5)
-        ax[2].grid()
-        ax[2].scatter(traj[sl_spoke, sl_read, 1],
-                      traj[sl_spoke, sl_read, 2], c=c, s=0.5)
-
-        if (np.max(np.abs(traj[:])) > 0.5):
-            ax[0].set_aspect('equal') # Only set the plot to be square for stack-of-stars 
-        else:
-            [a.set_aspect('equal') for a in ax]
+        ax.set_aspect('equal')
         fig.tight_layout()
         plt.close()
     return fig
@@ -153,7 +143,7 @@ def kspace(filename, dset='noncartesian', title=None, vol=0, slc=0, channel=0,
             smap = cm.ScalarMappable(norm=norm, cmap='cmr.infinity')
             pha = np.angle(data)
             mag = np.log1p(np.abs(data))
-            lims = np.nanpercentile(mag, (2, 98))
+            lims = np.nanpercentile(mag, (10, 90))
             mag = np.clip((mag - lims[0]) / (lims[1] - lims[0]), 0, 1)
             colorized = smap.to_rgba(pha, alpha=1., bytes=False)[:, :, 0:3]
             colorized = colorized * mag[:, :, None]
