@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as colors
 import cmasher
+import colorcet
 import contextlib
 plt.rcParams['font.size'] = 20
 from .util import *
@@ -224,8 +225,72 @@ def series(file, dset='image', title=None, ifr=None, iv=None, ic=None,
     plt.close()
     return fig
 
+def tsnr(file, dset='image', title=None,
+         nrows=1, axis='z', slpos=0.5, figsize=3, slfr=slice(None),
+         comp='mag', cmap='gray', clim=None, cbar=True):
+    """One slice through echoes or volumes
 
-def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=0.5):
+    Args:
+        file (str): .h5 file to load
+        dset (str): Dataset within the .h5 file (default 'image')
+        title (str): Plot title. Defaults to ''
+        nrows (int): Number of rows to plot slices over
+        axis (str) : 'x' 'y' or 'z'
+        slpos (int): Which slice
+        comp (str, opt): mag/pha/real/imaginary. Default mag
+        cmap (str): colormap. Defaults to 'gray'.
+        clim (float, float): Lower/upper window limits
+    """
+
+    fn = get_comp(comp)
+    with h5py.File(file, 'r') as f:
+        D = f[dset]
+        if D.ndim == 5:
+            imgs = fn(D[:, :, :, :, slfr])
+            [nv, nz, ny, nx, nfr] = imgs.shape
+            means = np.mean(imgs, 0)
+            stds = np.std(imgs, 0)
+            tsnr = (means / stds).transpose((3,0,1,2))
+        else:
+            raise Exception('tSNR requires a 5D image')
+    slpos = get_slpos(axis, nx, ny, nz, slpos)
+
+    if not clim:
+        clim = np.nanpercentile(tsnr, (2, 98))
+        if clim[0] < 0:
+            clim[1] = np.max(np.abs(clim))
+            clim[0] = -clim[1]
+
+    ncols = int(np.ceil(nfr / nrows))
+    fig, all_ax = plt.subplots(nrows, ncols, figsize=(
+        figsize*ncols, figsize*nrows), facecolor='black')
+
+    for ir in range(nrows):
+        if nrows > 1:
+            sl_ax = all_ax[ir, :]
+        else:
+            sl_ax = all_ax
+        for ic in range(ncols):
+            sl = (ir * ncols) + ic
+            if sl < nfr:
+                if hasattr(sl_ax, "__len__"):
+                    ax = sl_ax[ic]
+                else:
+                    ax = sl_ax
+                data = get_slice(tsnr[sl, :, :, :], slpos, axis)
+                im = ax.imshow(data, cmap=cmap, interpolation='gaussian', vmin=clim[0], vmax=clim[1])
+                ax.axis('off')
+    fig.tight_layout(pad=0)
+    if cbar == True:
+        add_colorbar(fig, im, all_ax, title, clim)
+    else:
+        if title is not None:
+            fig.suptitle(title, color='white')
+    plt.close()
+    return fig
+
+
+def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=0.5, cmap='cet_colorwheel'):
     """Plot a slice through each channel of a SENSE dataset
 
     Args:
@@ -246,11 +311,11 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=0.5):
         3*ncols, 3*nrows), facecolor='black')
 
     norm = colors.Normalize(vmin=-np.pi, vmax=np.pi)
-    smap = cm.ScalarMappable(norm=norm, cmap='cmr.infinity')
+    smap = cm.ScalarMappable(norm=norm, cmap=cmap)
 
     pha = np.angle(I)
     mag = np.abs(I)
-    lims = np.nanpercentile(mag, (2, 98))
+    lims = np.nanpercentile(mag, (0, 90))
     mag = np.clip((mag - lims[0]) / (lims[1] - lims[0]), 0, 1)
 
     for ic in range(nc):
@@ -268,6 +333,10 @@ def sense(file, dset='sense', title=None, nrows=1, axis='z', slpos=0.5):
         this_ax.imshow(colorized)
         this_ax.axis('off')
     fig.suptitle(title, color='white')
+    if nrows == 1:
+        add_colorball(ax[0], lims)
+    else:
+        add_colorball(ax[-1,0], lims, cmap=cmap)
     fig.tight_layout(pad=0)
     plt.close()
     return fig
@@ -382,8 +451,8 @@ def diff(fnames, titles=None, dsets=['image'],
         return fig
 
 
-def diffL(fnames, titles=None, dsets=['image'],
-         axis='z', slpos=0.5, iv=0, ifr=0, ic=0,
+def diffL(fnames, dsets=['image'], title=None, titles=None,
+         axis='z', slpos=0.5, ivs=None, ifr=0, ic=0,
          comp='mag', clim=None, cmap='gray',
          difflim=None, diffmap='cmr.iceburn',
          figsize=8, interp='none', mode='progressive'):
@@ -411,9 +480,12 @@ def diffL(fnames, titles=None, dsets=['image'],
     except:
         ifr = [ifr] * len(fnames)
 
+    if not ivs:
+        ivs = [0,]*len(fnames)
+
     with contextlib.ExitStack() as stack:
         files = [stack.enter_context(h5py.File(fn, 'r')) for fn in fnames]
-        imgs = [get_img(f, ii, iv, ic, comp, ds) for f, ds, ii in zip(files, dsets, ifr)]
+        imgs = [get_img(f, ii, iv, ic, comp, ds) for f, ds, ii, iv in zip(files, dsets, ifr, ivs)]
 
         nI = len(imgs)
 
@@ -477,6 +549,7 @@ def diffL(fnames, titles=None, dsets=['image'],
                 ax[1, ii].axis('off')
         # axi = fig.add_axes([0.02, 0.2, 0.02, 0.6])
         fig.subplots_adjust(wspace=0, hspace=0)
+        fig.text(x=0.5, y=0.9, s=title, color='white', ha='center', va='top')
         cbi = fig.colorbar(imi, ax=ax[0, :], location='left',
                            aspect=50, pad=0.01, shrink=0.8)
         cbi.ax.xaxis.set_tick_params(color='w', labelcolor='w')

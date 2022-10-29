@@ -1,5 +1,8 @@
 import numpy as np
 import warnings
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as colors
 
 def get_comp(component):
     if component == 'mag':
@@ -97,3 +100,25 @@ def add_colorbar(fig, im, ax, clabel, clims,
         cb.ax.get_yticklabels()[1].set_va('center')
         cb.ax.get_yticklabels()[2].set_va('top')
     cb.ax.tick_params(labelrotation=rot, color='w', labelcolor='w')
+
+def add_colorball(ax, clims, tick_fmt='{:.1g}', cmap='cc.colorwheel'):
+    cbarax = ax.inset_axes(bounds=(0.01, 0.05, 0.4, 0.4), projection='polar', facecolor='black')
+    theta, rad = np.meshgrid(np.linspace(-np.pi, np.pi, 64), np.linspace(0, 1, 64))
+    ones = np.ones_like(theta)
+    norm = colors.Normalize(vmin=-np.pi, vmax=np.pi)
+    smap = cm.ScalarMappable(norm=norm, cmap=cmap)
+    colorized = smap.to_rgba(list(theta.ravel()), alpha=1., bytes=False)
+    for ii in range(len(colorized)):
+        for ij in range(3):
+            colorized[ii][ij] = colorized[ii][ij] * rad.ravel()[ii]
+    quads = cbarax.pcolormesh(theta, rad, ones, shading='nearest', color=colorized)
+    cbarax.grid(visible=True, linewidth=2, color='white')
+    cbarax.tick_params(axis='x', colors='white')
+    cbarax.tick_params(axis='y', colors='white')
+    cbarax.spines[:].set_color('white')
+    cbarax.spines[:].set_linewidth(2)
+    cbarax.spines[:].set_visible(True)
+    cbarax.set_xticks([0, np.pi/2])
+    cbarax.set_xticklabels([tick_fmt.format(clims[1]), tick_fmt.format(clims[1]) + 'i'])
+    cbarax.xaxis.set_tick_params(pad=10)
+    cbarax.set_yticklabels([])
